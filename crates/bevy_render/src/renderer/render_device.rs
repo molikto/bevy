@@ -4,7 +4,7 @@ use crate::render_resource::{
 };
 use futures_lite::future;
 use std::sync::Arc;
-use wgpu::util::DeviceExt;
+use wgpu::{util::DeviceExt, ShaderModuleDescriptorSpirV};
 
 /// This GPU device is responsible for the creation of most rendering and compute resources.
 #[derive(Clone)]
@@ -38,7 +38,17 @@ impl RenderDevice {
     /// Creates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
     #[inline]
     pub fn create_shader_module(&self, desc: &wgpu::ShaderModuleDescriptor) -> wgpu::ShaderModule {
-        self.device.create_shader_module(desc)
+        match &desc.source {
+            wgpu::ShaderSource::SpirV(source) => unsafe {
+                println!("shader bypass");
+                self.device
+                    .create_shader_module_spirv(&ShaderModuleDescriptorSpirV {
+                        label: desc.label,
+                        source: source.clone(),
+                    })
+            },
+            _ => self.device.create_shader_module(desc),
+        }
     }
 
     /// Check for resource cleanups and mapping callbacks.
