@@ -33,12 +33,14 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.6.0", features = ["bevy"
 bevy_transform = { path = "../bevy_transform", version = "0.6.0" }
 bevy_window = { path = "../bevy_window", version = "0.6.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.6.0" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.6.0" }
 
 # rendering
 image = { version = "0.23.12", default-features = false }
 
 # misc
 wgpu = { version = "0.12.0", features = ["spirv"] }
+wgpu-profiler = "*"
 codespan-reporting = "0.11.0"
 naga = { version = "0.8.0", features = ["glsl-in", "spv-in", "spv-out", "wgsl-in", "wgsl-out"] }
 serde = { version = "1", features = ["derive"] }

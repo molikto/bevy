@@ -57,7 +57,7 @@ impl Default for WgpuOptions {
             backends,
             power_preference: PowerPreference::HighPerformance,
             priority,
-            features: wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES | wgpu::Features::SPIRV_SHADER_PASSTHROUGH,
+            features: wgpu::Features::TIMESTAMP_QUERY | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES | wgpu::Features::SPIRV_SHADER_PASSTHROUGH,
             disabled_features: None,
             limits,
             constrained_limits: None,

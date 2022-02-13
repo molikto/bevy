@@ -1,6 +1,7 @@
 mod graph_runner;
 mod render_device;
 
+use bevy_diagnostic::Diagnostics;
 use bevy_utils::tracing::{info, info_span};
 pub use graph_runner::*;
 pub use render_device::*;
@@ -8,11 +9,15 @@ pub use render_device::*;
 use crate::{
     options::{WgpuOptions, WgpuOptionsPriority},
     render_graph::RenderGraph,
-    view::{ExtractedWindows, ViewTarget},
+    view::{ExtractedWindows, ViewTarget}, gpu_profiler::GpuProfiler,
 };
 use bevy_ecs::prelude::*;
 use std::sync::Arc;
 use wgpu::{CommandEncoder, Instance, Queue, RequestAdapterOptions};
+
+pub fn gpu_profiler_system(profiler: Res<GpuProfiler>, mut diagnostics: ResMut<Diagnostics>) {
+    profiler.end_frame(diagnostics.as_mut());
+}
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
@@ -52,6 +57,7 @@ pub fn render_system(world: &mut World) {
             }
         }
     }
+
 }
 
 /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
@@ -225,4 +231,5 @@ pub async fn initialize_renderer(
 pub struct RenderContext {
     pub render_device: RenderDevice,
     pub command_encoder: CommandEncoder,
+    pub profiler: GpuProfiler,
 }

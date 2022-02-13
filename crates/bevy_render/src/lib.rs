@@ -3,6 +3,7 @@ pub mod color;
 pub mod mesh;
 pub mod options;
 pub mod primitives;
+pub mod gpu_profiler;
 pub mod render_asset;
 pub mod render_component;
 pub mod render_graph;
@@ -23,6 +24,7 @@ pub mod prelude {
         mesh::{shape, Mesh},
         render_resource::Shader,
         texture::Image,
+        gpu_profiler::GpuProfiler,
         view::{ComputedVisibility, Msaa, Visibility},
     };
 }
@@ -37,9 +39,9 @@ use crate::{
     primitives::{CubemapFrusta, Frustum},
     render_graph::RenderGraph,
     render_resource::{RenderPipelineCache, Shader, ShaderLoader},
-    renderer::render_system,
+    renderer::{render_system, gpu_profiler_system},
     texture::ImagePlugin,
-    view::{ViewPlugin, WindowRenderPlugin},
+    view::{ViewPlugin, WindowRenderPlugin}, gpu_profiler::GpuProfiler,
 };
 use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
@@ -141,9 +143,11 @@ impl Plugin for RenderPlugin {
             ));
             debug!("Configured wgpu adapter Limits: {:#?}", &options.limits);
             debug!("Configured wgpu adapter Features: {:#?}", &options.features);
+            let gpu_profiler = GpuProfiler::new(&queue);
             app.insert_resource(device.clone())
                 .insert_resource(queue.clone())
                 .insert_resource(options.clone())
+                .insert_resource(gpu_profiler.clone())
                 .init_resource::<ScratchRenderWorld>()
                 .register_type::<Frustum>()
                 .register_type::<CubemapFrusta>();
@@ -152,7 +156,8 @@ impl Plugin for RenderPlugin {
 
             let mut render_app = App::empty();
             let mut extract_stage =
-                SystemStage::parallel().with_system(RenderPipelineCache::extract_shaders);
+                SystemStage::parallel().with_system(RenderPipelineCache::extract_shaders)
+                .with_system(gpu_profiler_system);
             // don't apply buffers when the stage finishes running
             // extract stage runs on the app world, but the buffers are applied to the render world
             extract_stage.set_apply_buffers(false);
@@ -171,6 +176,7 @@ impl Plugin for RenderPlugin {
                 .insert_resource(instance)
                 .insert_resource(device)
                 .insert_resource(queue)
+                .insert_resource(gpu_profiler)
                 .insert_resource(options)
                 .insert_resource(render_pipeline_cache)
                 .insert_resource(asset_server)
