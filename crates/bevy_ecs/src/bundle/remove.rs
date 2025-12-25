@@ -3,7 +3,7 @@ use bevy_ptr::ConstNonNull;
 use core::ptr::NonNull;
 
 use crate::{
-    archetype::{Archetype, ArchetypeCreated, ArchetypeId, Archetypes},
+    archetype::{Archetype, ArchetypeComponentInfo, ArchetypeCreated, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleId, BundleInfo},
     change_detection::MaybeLocation,
     component::{ComponentId, Components, StorageType},
@@ -350,13 +350,13 @@ impl BundleInfo {
                 let mut removed_table_components = Vec::new();
                 let mut removed_sparse_set_components = Vec::new();
                 for component_id in self.iter_explicit_components() {
-                    if current_archetype.contains(component_id) {
+                    if let Some(&ArchetypeComponentInfo { created_tick, .. }) = current_archetype.get_component_info(component_id) {
                         // SAFETY: bundle components were already initialized by bundles.get_info
                         let component_info = unsafe { components.get_info_unchecked(component_id) };
                         match component_info.storage_type() {
-                            StorageType::Table => removed_table_components.push(component_id),
+                            StorageType::Table => removed_table_components.push(component_id.with_tick(created_tick)),
                             StorageType::SparseSet => {
-                                removed_sparse_set_components.push(component_id);
+                                removed_sparse_set_components.push(component_id.with_tick(created_tick));
                             }
                         }
                     } else if !intersection {

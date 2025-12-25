@@ -49,6 +49,7 @@ impl<'w> BundleSpawner<'w> {
             &world.components,
             &world.observers,
             ArchetypeId::EMPTY,
+            change_tick,
         );
 
         let archetype = &mut world.archetypes[new_archetype_id];

@@ -17,6 +17,7 @@ use crate::{
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
 use core::{cell::UnsafeCell, iter, marker::PhantomData, panic::Location};
+use std::println;
 use variadics_please::all_tuples;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
@@ -2336,6 +2337,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         archetype: &'w Archetype,
         table: &'w Table,
     ) {
+        println!("call2");
         fetch.matches = T::matches_component_set(state, &|id| archetype.contains(id));
         if fetch.matches {
             // SAFETY: The invariants are upheld by the caller.
@@ -2546,6 +2548,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
         archetype: &'w Archetype,
         _table: &Table,
     ) {
+        println!("call1");
         *fetch = archetype.contains(*state);
     }
 

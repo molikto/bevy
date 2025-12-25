@@ -1,6 +1,6 @@
 use crate::{
     change_detection::{CheckChangeTicks, ComponentTicks, MaybeLocation, Tick},
-    component::{ComponentId, ComponentInfo, Components},
+    component::{ComponentId, TickComponentId, ComponentInfo, Components},
     entity::Entity,
     query::DebugCheckedUnwrap,
     storage::{AbortOnPanic, ImmutableSparseSet, SparseSet},
@@ -726,12 +726,13 @@ impl Table {
     }
 }
 
+
 /// A collection of [`Table`] storages, indexed by [`TableId`]
 ///
 /// Can be accessed via [`Storages`](crate::storage::Storages)
 pub struct Tables {
     tables: Vec<Table>,
-    table_ids: HashMap<Box<[ComponentId]>, TableId>,
+    table_ids: HashMap<Box<[TickComponentId]>, TableId>,
 }
 
 impl Default for Tables {
@@ -793,7 +794,7 @@ impl Tables {
     /// `component_ids` must contain components that exist in `components`
     pub(crate) unsafe fn get_id_or_insert(
         &mut self,
-        component_ids: &[ComponentId],
+        component_ids: &[TickComponentId],
         components: &Components,
     ) -> TableId {
         if component_ids.is_empty() {
@@ -807,7 +808,7 @@ impl Tables {
             .from_key(component_ids)
             .or_insert_with(|| {
                 let mut table = TableBuilder::with_capacity(0, component_ids.len());
-                for component_id in component_ids {
+                for TickComponentId { component_id, .. } in component_ids {
                     table = table.add_column(components.get_info_unchecked(*component_id));
                 }
                 tables.push(table.build());

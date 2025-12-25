@@ -17,6 +17,7 @@ use crate::entity::UniqueEntityEquivalentSlice;
 use alloc::vec::Vec;
 use bevy_utils::prelude::DebugName;
 use core::{fmt, ptr};
+use std::println;
 use fixedbitset::FixedBitSet;
 use log::warn;
 #[cfg(feature = "trace")]
@@ -584,6 +585,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # Safety
     /// `archetype` must be from the `World` this state was initialized from.
     pub unsafe fn new_archetype(&mut self, archetype: &Archetype) {
+        println!("Checking archetype {:?}", archetype.id());
         if D::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
             && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
             && self.matches_component_set(&|id| archetype.contains(id))
@@ -696,6 +698,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // then there was a sparse set component in the `required` set, and the query has `is_dense = false`.
         let is_dense = self.is_dense;
 
+        println!("created query state1");
         QueryState {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
@@ -843,6 +846,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 .collect()
         };
 
+        println!("created query state1");
         QueryState {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,

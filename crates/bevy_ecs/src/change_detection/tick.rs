@@ -9,7 +9,7 @@ use crate::change_detection::{MaybeLocation, MAX_CHANGE_AGE};
 /// This is used to power change detection.
 ///
 /// *Note* that a system that hasn't been run yet has a `Tick` of 0.
-#[derive(Copy, Clone, Default, Debug, Eq, Hash, PartialEq)]
+#[derive(Copy, Clone, Default, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),

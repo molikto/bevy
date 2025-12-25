@@ -64,6 +64,7 @@ impl<'w> BundleInserter<'w> {
             &world.components,
             &world.observers,
             archetype_id,
+            change_tick,
         );
 
         let inserter = if new_archetype_id == archetype_id {
@@ -497,6 +498,7 @@ impl BundleInfo {
         components: &Components,
         observers: &Observers,
         archetype_id: ArchetypeId,
+        change_tick: Tick,
     ) -> (ArchetypeId, bool) {
         if let Some(archetype_after_insert_id) = archetypes[archetype_id]
             .edges()
@@ -522,8 +524,8 @@ impl BundleInfo {
                 // SAFETY: component_id exists
                 let component_info = unsafe { components.get_info_unchecked(component_id) };
                 match component_info.storage_type() {
-                    StorageType::Table => new_table_components.push(component_id),
-                    StorageType::SparseSet => new_sparse_set_components.push(component_id),
+                    StorageType::Table => new_table_components.push(component_id.with_tick(change_tick)),
+                    StorageType::SparseSet => new_sparse_set_components.push(component_id.with_tick(change_tick)),
                 }
             }
         }
@@ -536,10 +538,10 @@ impl BundleInfo {
                 let component_info = unsafe { components.get_info_unchecked(component_id) };
                 match component_info.storage_type() {
                     StorageType::Table => {
-                        new_table_components.push(component_id);
+                        new_table_components.push(component_id.with_tick(change_tick));
                     }
                     StorageType::SparseSet => {
-                        new_sparse_set_components.push(component_id);
+                        new_sparse_set_components.push(component_id.with_tick(change_tick));
                     }
                 }
             }

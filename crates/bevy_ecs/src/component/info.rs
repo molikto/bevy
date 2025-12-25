@@ -13,8 +13,7 @@ use core::{
 use indexmap::IndexSet;
 
 use crate::{
-    archetype::ArchetypeFlags,
-    component::{
+    archetype::ArchetypeFlags, change_detection::Tick, component::{
         Component, ComponentCloneBehavior, ComponentMutability, QueuedComponents,
         RequiredComponents, StorageType,
     },
@@ -178,6 +177,36 @@ impl ComponentInfo {
 )]
 pub struct ComponentId(pub(super) usize);
 
+#[derive(Hash, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
+pub struct TickComponentId {
+    pub component_id: ComponentId,
+    pub created_tick: Tick,
+}
+
+impl SparseSetIndex for TickComponentId {
+    #[inline]
+    fn sparse_set_index(&self) -> usize {
+        self.component_id.index() * 1000 + self.created_tick.get() as usize
+    }
+
+    #[inline]
+    fn get_sparse_set_index(value: usize) -> Self {
+        Self {
+            component_id: ComponentId::new(value / 1000),
+            created_tick: Tick::new((value % 1000) as u32),
+        }
+    }
+}
+
+impl TickComponentId {
+    pub const fn new(component_id: ComponentId, created_tick: Tick) -> Self {
+        Self {
+            component_id,
+            created_tick,
+        }
+    }
+}
+
 impl ComponentId {
     /// Creates a new [`ComponentId`].
     ///
@@ -192,6 +221,13 @@ impl ComponentId {
     #[inline]
     pub fn index(self) -> usize {
         self.0
+    }
+
+    pub fn with_tick(self, created_tick: Tick) -> TickComponentId {
+        TickComponentId {
+            component_id: self,
+            created_tick,
+        }
     }
 }
 

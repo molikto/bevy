@@ -4,7 +4,7 @@ use crate::{
         Bundle, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle, InsertMode,
     },
     change_detection::{ComponentTicks, MaybeLocation, MutUntyped, Tick},
-    component::{Component, ComponentId, Components, Mutable, StorageType},
+    component::{Component, ComponentId, Components, Mutable, StorageType, TickComponentId},
     entity::{Entity, EntityCloner, EntityClonerBuilder, EntityLocation, OptIn, OptOut},
     event::{EntityComponentsTrigger, EntityEvent},
     lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
@@ -1656,7 +1656,7 @@ impl<'w> EntityWorldMut<'w> {
             }
             table_row = remove_result.table_row;
 
-            for component_id in archetype.sparse_set_components() {
+            for TickComponentId { component_id, .. } in archetype.sparse_set_components() {
                 // set must have existed for the component to be added.
                 let sparse_set = self
                     .world

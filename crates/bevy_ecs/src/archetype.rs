@@ -21,9 +21,10 @@
 
 use crate::{
     bundle::BundleId,
-    component::{ComponentId, Components, RequiredComponentConstructor, StorageType},
+    component::{ComponentId, Components, RequiredComponentConstructor, StorageType, TickComponentId},
     entity::{Entity, EntityLocation},
     event::Event,
+    change_detection::Tick,
     observer::Observers,
     query::DebugCheckedUnwrap,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
@@ -351,8 +352,9 @@ pub(crate) struct ArchetypeSwapRemoveResult {
 /// Internal metadata for a [`Component`] within a given [`Archetype`].
 ///
 /// [`Component`]: crate::component::Component
-struct ArchetypeComponentInfo {
-    storage_type: StorageType,
+pub struct ArchetypeComponentInfo {
+    pub storage_type: StorageType,
+    pub created_tick: Tick,
 }
 
 bitflags::bitflags! {
@@ -397,14 +399,14 @@ impl Archetype {
         observers: &Observers,
         id: ArchetypeId,
         table_id: TableId,
-        table_components: impl Iterator<Item = ComponentId>,
-        sparse_set_components: impl Iterator<Item = ComponentId>,
+        table_components: impl Iterator<Item = TickComponentId>,
+        sparse_set_components: impl Iterator<Item = TickComponentId>,
     ) -> Self {
         let (min_table, _) = table_components.size_hint();
         let (min_sparse, _) = sparse_set_components.size_hint();
         let mut flags = ArchetypeFlags::empty();
         let mut archetype_components = SparseSet::with_capacity(min_table + min_sparse);
-        for (idx, component_id) in table_components.enumerate() {
+        for (idx, TickComponentId { component_id, created_tick }) in table_components.enumerate() {
             // SAFETY: We are creating an archetype that includes this component so it must exist
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
@@ -413,6 +415,7 @@ impl Archetype {
                 component_id,
                 ArchetypeComponentInfo {
                     storage_type: StorageType::Table,
+                    created_tick: created_tick
                 },
             );
             // NOTE: the `table_components` are sorted AND they were inserted in the `Table` in the same
@@ -424,7 +427,7 @@ impl Archetype {
                 .insert(id, ArchetypeRecord { column: Some(idx) });
         }
 
-        for component_id in sparse_set_components {
+        for TickComponentId { component_id, created_tick } in sparse_set_components {
             // SAFETY: We are creating an archetype that includes this component so it must exist
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
@@ -433,6 +436,7 @@ impl Archetype {
                 component_id,
                 ArchetypeComponentInfo {
                     storage_type: StorageType::SparseSet,
+                    created_tick: created_tick
                 },
             );
             component_index
@@ -503,11 +507,11 @@ impl Archetype {
     ///
     /// [`Table`]: crate::storage::Table
     #[inline]
-    pub fn table_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn table_components(&self) -> impl Iterator<Item = TickComponentId> + '_ {
         self.components
             .iter()
             .filter(|(_, component)| component.storage_type == StorageType::Table)
-            .map(|(id, _)| *id)
+            .map(|(id, c)| TickComponentId::new(*id, c.created_tick))
     }
 
     /// Gets an iterator of all of the components stored in [`ComponentSparseSet`]s.
@@ -516,11 +520,11 @@ impl Archetype {
     ///
     /// [`ComponentSparseSet`]: crate::storage::ComponentSparseSet
     #[inline]
-    pub fn sparse_set_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn sparse_set_components(&self) -> impl Iterator<Item = TickComponentId> + '_ {
         self.components
             .iter()
             .filter(|(_, component)| component.storage_type == StorageType::SparseSet)
-            .map(|(id, _)| *id)
+            .map(|(id, c)| TickComponentId::new(*id, c.created_tick))
     }
 
     /// Returns a slice of all of the components in the archetype.
@@ -653,6 +657,12 @@ impl Archetype {
         self.components.contains(component_id)
     }
 
+    /// Gets information about a component in the archetype.
+    #[inline]
+    pub fn get_component_info(&self, component_id: ComponentId) -> Option<&ArchetypeComponentInfo> {
+        self.components.get(component_id)
+    }
+
     /// Gets the type of storage where a component in the archetype can be found.
     /// Returns `None` if the component is not part of the archetype.
     /// This runs in `O(1)` time.
@@ -756,8 +766,8 @@ impl ArchetypeGeneration {
 
 #[derive(Hash, PartialEq, Eq)]
 struct ArchetypeComponents {
-    table_components: Box<[ComponentId]>,
-    sparse_set_components: Box<[ComponentId]>,
+    table_components: Box<[TickComponentId]>,
+    sparse_set_components: Box<[TickComponentId]>,
 }
 
 /// Maps a [`ComponentId`] to the list of [`Archetypes`]([`Archetype`]) that contain the [`Component`](crate::component::Component),
@@ -895,8 +905,8 @@ impl Archetypes {
         components: &Components,
         observers: &Observers,
         table_id: TableId,
-        table_components: Vec<ComponentId>,
-        sparse_set_components: Vec<ComponentId>,
+        table_components: Vec<TickComponentId>,
+        sparse_set_components: Vec<TickComponentId>,
     ) -> (ArchetypeId, bool) {
         let archetype_identity = ArchetypeComponents {
             sparse_set_components: sparse_set_components.into_boxed_slice(),
