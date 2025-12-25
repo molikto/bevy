@@ -33,6 +33,12 @@ impl Tick {
         Self { tick }
     }
 
+    pub fn next(&self) -> Self {
+        Self {
+            tick: self.tick.wrapping_add(1),
+        }
+    }
+
     /// Gets the value of this change tick.
     #[inline]
     pub const fn get(self) -> u32 {

@@ -1,4 +1,5 @@
 use core::panic::AssertUnwindSafe;
+use std::println;
 use fixedbitset::FixedBitSet;
 
 #[cfg(feature = "trace")]
@@ -194,6 +195,7 @@ impl SingleThreadedExecutor {
     }
 
     fn apply_deferred(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
+        //println!("apply deferred called");
         for system_index in self.unapplied_systems.ones() {
             let system = &mut schedule.systems[system_index].system;
             system.apply_deferred(world);

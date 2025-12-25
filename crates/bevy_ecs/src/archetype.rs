@@ -657,6 +657,24 @@ impl Archetype {
         self.components.contains(component_id)
     }
 
+    /// Checks if the archetype contains a specific component. This runs in `O(1)` time.
+    #[inline]
+    pub fn contains_with_tick_lesser(&self, component_id: ComponentId, tick: Tick) -> bool {
+        if let Some(info) = self.components.get(component_id) {
+            info.created_tick < tick
+        } else {
+            false
+        }
+    }
+
+    pub fn contains_with_tick_leq(&self, component_id: ComponentId, tick: Tick) -> bool {
+        if let Some(info) = self.components.get(component_id) {
+            info.created_tick <= tick
+        } else {
+            false
+        }
+    }
+
     /// Gets information about a component in the archetype.
     #[inline]
     pub fn get_component_info(&self, component_id: ComponentId) -> Option<&ArchetypeComponentInfo> {

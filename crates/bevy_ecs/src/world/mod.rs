@@ -2920,9 +2920,18 @@ impl World {
     /// Note that this *can* be done in safe code, despite the name of the type.
     #[inline]
     pub fn increment_change_tick(&mut self) -> Tick {
+        // let change_tick = self.change_tick.get_mut();
+        // let prev_tick = *change_tick;
+        // *change_tick = change_tick.wrapping_add(1);
+        // Tick::new(prev_tick)
+        self.change_tick()
+    }
+
+    #[inline]
+    pub fn set_change_tick(&mut self, tick: Tick) -> Tick {
         let change_tick = self.change_tick.get_mut();
         let prev_tick = *change_tick;
-        *change_tick = change_tick.wrapping_add(1);
+        *change_tick = tick.get();
         Tick::new(prev_tick)
     }
 

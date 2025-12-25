@@ -27,7 +27,7 @@ use thiserror::Error;
 #[cfg(feature = "trace")]
 use tracing::info_span;
 
-use crate::{change_detection::CheckChangeTicks, system::System};
+use crate::{change_detection::{CheckChangeTicks, Tick}, system::System};
 use crate::{
     component::{ComponentId, Components},
     prelude::Component,

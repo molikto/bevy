@@ -348,10 +348,11 @@ impl<'w> UnsafeWorldCell<'w> {
     pub fn increment_change_tick(self) -> Tick {
         // SAFETY:
         // - we only access world metadata
-        let change_tick = unsafe { &self.world_metadata().change_tick };
-        // NOTE: We can used a relaxed memory ordering here, since nothing
-        // other than the atomic value itself is relying on atomic synchronization
-        Tick::new(change_tick.fetch_add(1, Ordering::Relaxed))
+        // let change_tick = unsafe { &self.world_metadata().change_tick };
+        // // NOTE: We can used a relaxed memory ordering here, since nothing
+        // // other than the atomic value itself is relying on atomic synchronization
+        // Tick::new(change_tick.fetch_add(1, Ordering::Relaxed))
+        self.change_tick()
     }
 
     /// Provides unchecked access to the internal data stores of the [`World`].

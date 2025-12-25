@@ -515,7 +515,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 // SAFETY: The validate_world call ensures that the world is the same the QueryState
                 // was initialized from.
                 unsafe {
-                    self.new_archetype(archetype);
+                    self.new_archetype(archetype, world.change_tick());
                 }
             }
         } else {
@@ -550,7 +550,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     // SAFETY: The validate_world call ensures that the world is the same the QueryState
                     // was initialized from.
                     unsafe {
-                        self.new_archetype(archetype);
+                        self.new_archetype(archetype, world.change_tick());
                     }
                 }
             }
@@ -584,12 +584,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// # Safety
     /// `archetype` must be from the `World` this state was initialized from.
-    pub unsafe fn new_archetype(&mut self, archetype: &Archetype) {
-        println!("Checking archetype {:?}", archetype.id());
-        if D::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
-            && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
-            && self.matches_component_set(&|id| archetype.contains(id))
+    pub unsafe fn new_archetype(&mut self, archetype: &Archetype, tick: Tick) {
+        //println!("Checking archetype {:?}", archetype.id());
+        if D::matches_component_set(&self.fetch_state, &|id| archetype.contains_with_tick_lesser(id, tick))
+            && F::matches_component_set(&self.filter_state, &|id| archetype.contains_with_tick_lesser(id, tick))
+            && self.matches_component_set(&|id| archetype.contains_with_tick_lesser(id, tick))
         {
+            //println!("Matched archetype {:?}", archetype.id());
             let archetype_index = archetype.id().index();
             if !self.matched_archetypes.contains(archetype_index) {
                 self.matched_archetypes.grow_and_insert(archetype_index);
