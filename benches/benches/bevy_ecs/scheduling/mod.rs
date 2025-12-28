@@ -1,11 +1,9 @@
 mod run_condition;
 mod running_systems;
-mod schedule;
 
 use criterion::criterion_group;
 use run_condition::*;
 use running_systems::*;
-use schedule::*;
 
 criterion_group!(
     benches,
@@ -16,7 +14,4 @@ criterion_group!(
     empty_systems,
     busy_systems,
     contrived,
-    schedule,
-    build_schedule,
-    empty_schedule_run,
 );
