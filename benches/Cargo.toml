@@ -15,15 +15,9 @@ seq-macro = "0.3.6"
 
 [dev-dependencies]
 # Bevy crates
-bevy_app = { path = "../crates/bevy_app" }
 bevy_ecs = { path = "../crates/bevy_ecs", features = ["multi_threaded"] }
 bevy_math = { path = "../crates/bevy_math" }
-bevy_picking = { path = "../crates/bevy_picking", features = ["mesh_picking"] }
 bevy_reflect = { path = "../crates/bevy_reflect", features = ["functions"] }
-bevy_camera = { path = "../crates/bevy_camera" }
-bevy_mesh = { path = "../crates/bevy_mesh" }
-bevy_asset = { path = "../crates/bevy_asset" }
-bevy_render = { path = "../crates/bevy_render" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
 bevy_platform = { path = "../crates/bevy_platform", default-features = false, features = [
   "std",
