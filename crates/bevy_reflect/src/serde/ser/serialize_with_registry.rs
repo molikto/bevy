@@ -1,3 +1,5 @@
+use core::any::TypeId;
+
 use crate::{FromType, Reflect, TypeRegistry};
 use alloc::boxed::Box;
 use serde::{Serialize, Serializer};
@@ -100,5 +102,22 @@ impl<'a, T: SerializeWithRegistry> Serialize for SerializableWithRegistry<'a, T>
         S: Serializer,
     {
         self.value.serialize(serializer, self.registry)
+    }
+}
+
+
+impl SerializeWithRegistry for TypeId {
+    fn serialize<S>(&self, serializer: S, registry: &TypeRegistry) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if let Some(type_info) = registry.get_type_info(*self) {
+            type_info.type_path().serialize(serializer)
+        } else {
+            Err(serde::ser::Error::custom(format!(
+                "TypeId {:?} not found in TypeRegistry",
+                self
+            )))
+        }
     }
 }

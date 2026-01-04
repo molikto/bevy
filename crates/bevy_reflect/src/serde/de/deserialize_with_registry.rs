@@ -1,3 +1,5 @@
+use core::any::TypeId;
+
 use crate::serde::de::error_utils::make_custom_error;
 use crate::{FromType, PartialReflect, TypeRegistry};
 use alloc::boxed::Box;
@@ -82,6 +84,23 @@ impl<T: PartialReflect + for<'de> DeserializeWithRegistry<'de>> FromType<T>
             deserialize: |deserializer, registry| {
                 Ok(Box::new(T::deserialize(deserializer, registry)?))
             },
+        }
+    }
+}
+
+impl DeserializeWithRegistry<'de> for TypeId {
+    fn deserialize<D>(deserializer: D, _registry: &TypeRegistry) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let type_path: String = serde::Deserialize::deserialize(deserializer)?;
+        if let Some(type_data) = registry.get_with_type_path(&type_path) {
+            Ok(type_data.type_id())
+        } else {
+            Err(serde::de::Error::custom(format!(
+                "No type found in registry for type path {}",
+                type_path
+            )))
         }
     }
 }
