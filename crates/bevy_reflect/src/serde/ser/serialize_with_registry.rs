@@ -105,7 +105,6 @@ impl<'a, T: SerializeWithRegistry> Serialize for SerializableWithRegistry<'a, T>
     }
 }
 
-
 impl SerializeWithRegistry for TypeId {
     fn serialize<S>(&self, serializer: S, registry: &TypeRegistry) -> Result<S::Ok, S::Error>
     where
