@@ -3,7 +3,7 @@ use bevy_ptr::ConstNonNull;
 use core::ptr::NonNull;
 
 use crate::{
-    archetype::{Archetype, ArchetypeCreated, ArchetypeId, Archetypes},
+    archetype::{Archetype, ArchetypeComponentInfo, ArchetypeCreated, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleId, BundleInfo},
     change_detection::MaybeLocation,
     component::{ComponentId, Components, StorageType},
@@ -12,6 +12,7 @@ use crate::{
     lifecycle::{Remove, Replace, REMOVE, REPLACE},
     observer::Observers,
     relationship::RelationshipHookMode,
+    stage::Stage,
     storage::{SparseSets, Storages, Table},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -60,6 +61,7 @@ impl<'w> BundleRemover<'w> {
         require_all: bool,
     ) -> Option<Self> {
         let bundle_info = world.bundles.get_unchecked(bundle_id);
+        let current_stage = world.stage();
         // SAFETY: Caller ensures archetype and bundle ids are correct.
         let (new_archetype_id, is_new_created) = unsafe {
             bundle_info.remove_bundle_from_archetype(
@@ -69,6 +71,7 @@ impl<'w> BundleRemover<'w> {
                 &world.observers,
                 archetype_id,
                 !require_all,
+                current_stage,
             )
         };
         let new_archetype_id = new_archetype_id?;
@@ -188,6 +191,7 @@ impl<'w> BundleRemover<'w> {
 
         // SAFETY: We still have the cell, so this is unique, it doesn't conflict with other references, and we drop it shortly.
         let world = unsafe { self.world.world_mut() };
+        let stage = world.stage();
 
         let (needs_drop, pre_remove_result) = pre_remove(
             &mut world.storages.sparse_sets,
@@ -202,7 +206,7 @@ impl<'w> BundleRemover<'w> {
         // Handle sparse set removes
         for component_id in self.bundle_info.as_ref().iter_explicit_components() {
             if self.old_archetype.as_ref().contains(component_id) {
-                world.removed_components.write(component_id, entity);
+                world.removed_components.write(component_id, entity, stage);
 
                 // Make sure to drop components stored in sparse sets.
                 // Dense components are dropped later in `move_to_and_drop_missing_unchecked`.
@@ -327,7 +331,28 @@ impl BundleInfo {
         observers: &Observers,
         archetype_id: ArchetypeId,
         intersection: bool,
+        current_stage: Stage,
     ) -> (Option<ArchetypeId>, bool) {
+        {
+            let current_archetype = &archetypes[archetype_id];
+            for component_id in self.iter_explicit_components() {
+                if let Some(info) = current_archetype.get_component_info(component_id) {
+                    if info.stage < current_stage {
+                        // Hack to allow running systems across stages
+                        if let Some(component_info) = components.get_info(component_id) {
+                            if component_info.name().starts_with("bevy_ecs::system::system_registry::RegisteredSystem") {
+                                continue;
+                            }
+                        }
+                        panic!(
+                            "Cannot remove component {:?} added in stage {:?} from stage {:?}",
+                            component_id, info.stage, current_stage
+                        );
+                    }
+                }
+            }
+        }
+
         // Check the archetype graph to see if the bundle has been
         // removed from this archetype in the past.
         let archetype_after_remove_result = {
@@ -350,13 +375,13 @@ impl BundleInfo {
                 let mut removed_table_components = Vec::new();
                 let mut removed_sparse_set_components = Vec::new();
                 for component_id in self.iter_explicit_components() {
-                    if current_archetype.contains(component_id) {
+                    if let Some(&ArchetypeComponentInfo { stage, .. }) = current_archetype.get_component_info(component_id) {
                         // SAFETY: bundle components were already initialized by bundles.get_info
                         let component_info = unsafe { components.get_info_unchecked(component_id) };
                         match component_info.storage_type() {
-                            StorageType::Table => removed_table_components.push(component_id),
+                            StorageType::Table => removed_table_components.push(component_id.at_stage(stage)),
                             StorageType::SparseSet => {
-                                removed_sparse_set_components.push(component_id);
+                                removed_sparse_set_components.push(component_id.at_stage(stage));
                             }
                         }
                     } else if !intersection {

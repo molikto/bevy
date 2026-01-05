@@ -5,22 +5,12 @@
 
 pub use crate::change_detection::{NonSend, NonSendMut, Res, ResMut};
 use crate::{
-    archetype::Archetypes,
-    bundle::Bundles,
-    change_detection::{ComponentTicksMut, ComponentTicksRef, Tick},
-    component::{ComponentId, Components},
-    entity::{Entities, EntityAllocator},
-    query::{
+    archetype::Archetypes, bundle::Bundles, change_detection::{ComponentTicksMut, ComponentTicksRef, Tick}, component::{ComponentId, Components}, entity::{Entities, EntityAllocator}, query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
         QueryState, ReadOnlyQueryData,
-    },
-    resource::Resource,
-    storage::ResourceData,
-    system::{Query, Single, SystemMeta},
-    world::{
-        unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut,
-        FromWorld, World,
-    },
+    }, resource::Resource, stage::Stage, storage::ResourceData, system::{Query, Single, SystemMeta}, world::{
+        DeferredWorld, FilteredResources, FilteredResourcesMut, FromWorld, World, unsafe_world_cell::UnsafeWorldCell
+    }
 };
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 pub use bevy_ecs_macros::SystemParam;
@@ -1729,6 +1719,37 @@ unsafe impl<'a> SystemParam for &'a Bundles {
         world.bundles()
     }
 }
+
+// SAFETY:
+// - The stage is accessible from the world metadata
+unsafe impl SystemParam for Stage {
+    type State = ();
+    type Item<'w, 's> = Stage;
+
+    fn init_state(_world: &mut World) -> Self::State {}
+
+    fn init_access(
+        _state: &Self::State,
+        _system_meta: &mut SystemMeta,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: &mut World,
+    ) {
+    }
+
+    unsafe fn get_param<'w, 's>(
+        _state: &'s mut Self::State,
+        _system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        _change_tick: Tick,
+    ) -> Self::Item<'w, 's> {
+        world.stage()
+    }
+}
+
+// SAFETY: Stage is read-only
+unsafe impl ReadOnlySystemParam for Stage {}
+
+
 
 /// A [`SystemParam`] that reads the previous and current change ticks of the system.
 ///

@@ -43,12 +43,14 @@ impl<'w> BundleSpawner<'w> {
         change_tick: Tick,
     ) -> Self {
         let bundle_info = world.bundles.get_unchecked(bundle_id);
+        let stage = world.stage();
         let (new_archetype_id, is_new_created) = bundle_info.insert_bundle_into_archetype(
             &mut world.archetypes,
             &mut world.storages,
             &world.components,
             &world.observers,
             ArchetypeId::EMPTY,
+            stage,
         );
 
         let archetype = &mut world.archetypes[new_archetype_id];

@@ -1,6 +1,5 @@
 use crate::{
-    archetype::Archetype,
-    bundle::{
+    archetype::Archetype, bundle::{
         Bundle, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle, InsertMode,
     },
     change_detection::{ComponentTicks, MaybeLocation, MutUntyped, Tick},
@@ -1628,10 +1627,11 @@ impl<'w> EntityWorldMut<'w> {
 
         // do the despawn
         let change_tick = self.world.change_tick();
+        let stage = self.world.stage();
         for component_id in archetype.components() {
             self.world
                 .removed_components
-                .write(*component_id, self.entity);
+                .write(*component_id, self.entity, stage);
         }
         // SAFETY: Since we had a location, and it was valid, this is safe.
         unsafe {
@@ -1668,7 +1668,7 @@ impl<'w> EntityWorldMut<'w> {
             }
             table_row = remove_result.table_row;
 
-            for component_id in archetype.sparse_set_components() {
+            for StageComponentId { component_id, .. } in archetype.sparse_set_components() {
                 // set must have existed for the component to be added.
                 let sparse_set = self
                     .world

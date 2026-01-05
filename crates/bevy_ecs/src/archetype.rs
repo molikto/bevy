@@ -20,13 +20,7 @@
 //! [`World::archetypes`]: crate::world::World::archetypes
 
 use crate::{
-    bundle::BundleId,
-    component::{ComponentId, Components, RequiredComponentConstructor, StorageType},
-    entity::{Entity, EntityLocation},
-    event::Event,
-    observer::Observers,
-    query::DebugCheckedUnwrap,
-    storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
+    bundle::BundleId, component::{ComponentId, Components, RequiredComponentConstructor, StorageType}, entity::{Entity, EntityLocation}, event::Event, observer::Observers, query::DebugCheckedUnwrap, stage::{Stage, StageComponentId}, storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow}
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
@@ -204,7 +198,7 @@ impl BundleComponentStatus for SpawnBundleStatus {
 /// [`World`]: crate::world::World
 #[derive(Default)]
 pub struct Edges {
-    insert_bundle: SparseArray<BundleId, ArchetypeAfterBundleInsert>,
+    insert_bundle: SparseArray<BundleId, SparseArray<Stage, ArchetypeAfterBundleInsert>>,
     remove_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
     take_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
 }
@@ -216,8 +210,8 @@ impl Edges {
     /// If this returns `None`, it means there has not been a transition from
     /// the source archetype via the provided bundle.
     #[inline]
-    pub fn get_archetype_after_bundle_insert(&self, bundle_id: BundleId) -> Option<ArchetypeId> {
-        self.get_archetype_after_bundle_insert_internal(bundle_id)
+    pub fn get_archetype_after_bundle_insert(&self, bundle_id: BundleId, stage: Stage) -> Option<ArchetypeId> {
+        self.get_archetype_after_bundle_insert_internal(bundle_id, stage)
             .map(|bundle| bundle.archetype_id)
     }
 
@@ -227,8 +221,11 @@ impl Edges {
     pub(crate) fn get_archetype_after_bundle_insert_internal(
         &self,
         bundle_id: BundleId,
+        stage: Stage,
     ) -> Option<&ArchetypeAfterBundleInsert> {
-        self.insert_bundle.get(bundle_id)
+        self.insert_bundle.get(bundle_id).and_then(|map| {
+            map.get(stage)
+        })
     }
 
     /// Caches the target archetype when inserting a bundle into the source archetype.
@@ -236,6 +233,7 @@ impl Edges {
     pub(crate) fn cache_archetype_after_bundle_insert(
         &mut self,
         bundle_id: BundleId,
+        stage: Stage,
         archetype_id: ArchetypeId,
         bundle_status: impl Into<Box<[ComponentStatus]>>,
         required_components: impl Into<Box<[RequiredComponentConstructor]>>,
@@ -246,16 +244,20 @@ impl Edges {
         // Make sure `extend` doesn't over-reserve, since the conversion to `Box<[_]>` would reallocate to shrink.
         added.reserve_exact(existing.len());
         added.extend(existing);
-        self.insert_bundle.insert(
-            bundle_id,
-            ArchetypeAfterBundleInsert {
-                archetype_id,
-                bundle_status: bundle_status.into(),
-                required_components: required_components.into(),
-                added_len,
-                inserted: added.into(),
-            },
-        );
+        let info = ArchetypeAfterBundleInsert {
+            archetype_id,
+            bundle_status: bundle_status.into(),
+            required_components: required_components.into(),
+            added_len,
+            inserted: added.into(),
+        };
+        if !self.insert_bundle.contains(bundle_id) {
+            self.insert_bundle.insert(bundle_id, SparseArray::new());
+        }
+        self.insert_bundle
+            .get_mut(bundle_id)
+            .unwrap()
+            .insert(stage, info);
     }
 
     /// Checks the cache for the target archetype when removing a bundle from the
@@ -351,8 +353,9 @@ pub(crate) struct ArchetypeSwapRemoveResult {
 /// Internal metadata for a [`Component`] within a given [`Archetype`].
 ///
 /// [`Component`]: crate::component::Component
-struct ArchetypeComponentInfo {
-    storage_type: StorageType,
+pub(crate) struct ArchetypeComponentInfo {
+    pub(crate) storage_type: StorageType,
+    pub(crate) stage: Stage,
 }
 
 bitflags::bitflags! {
@@ -397,14 +400,14 @@ impl Archetype {
         observers: &Observers,
         id: ArchetypeId,
         table_id: TableId,
-        table_components: impl Iterator<Item = ComponentId>,
-        sparse_set_components: impl Iterator<Item = ComponentId>,
+        table_components: impl Iterator<Item = StageComponentId>,
+        sparse_set_components: impl Iterator<Item = StageComponentId>,
     ) -> Self {
         let (min_table, _) = table_components.size_hint();
         let (min_sparse, _) = sparse_set_components.size_hint();
         let mut flags = ArchetypeFlags::empty();
         let mut archetype_components = SparseSet::with_capacity(min_table + min_sparse);
-        for (idx, component_id) in table_components.enumerate() {
+        for (idx, StageComponentId { component_id, stage }) in table_components.enumerate() {
             // SAFETY: We are creating an archetype that includes this component so it must exist
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
@@ -413,6 +416,7 @@ impl Archetype {
                 component_id,
                 ArchetypeComponentInfo {
                     storage_type: StorageType::Table,
+                    stage
                 },
             );
             // NOTE: the `table_components` are sorted AND they were inserted in the `Table` in the same
@@ -424,7 +428,7 @@ impl Archetype {
                 .insert(id, ArchetypeRecord { column: Some(idx) });
         }
 
-        for component_id in sparse_set_components {
+        for StageComponentId { component_id, stage } in sparse_set_components {
             // SAFETY: We are creating an archetype that includes this component so it must exist
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
@@ -433,6 +437,7 @@ impl Archetype {
                 component_id,
                 ArchetypeComponentInfo {
                     storage_type: StorageType::SparseSet,
+                    stage: stage
                 },
             );
             component_index
@@ -503,11 +508,11 @@ impl Archetype {
     ///
     /// [`Table`]: crate::storage::Table
     #[inline]
-    pub fn table_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn table_components(&self) -> impl Iterator<Item = StageComponentId> + '_ {
         self.components
             .iter()
             .filter(|(_, component)| component.storage_type == StorageType::Table)
-            .map(|(id, _)| *id)
+            .map(|(id, c)| StageComponentId::new(*id, c.stage))
     }
 
     /// Gets an iterator of all of the components stored in [`ComponentSparseSet`]s.
@@ -516,11 +521,11 @@ impl Archetype {
     ///
     /// [`ComponentSparseSet`]: crate::storage::ComponentSparseSet
     #[inline]
-    pub fn sparse_set_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn sparse_set_components(&self) -> impl Iterator<Item = StageComponentId> + '_ {
         self.components
             .iter()
             .filter(|(_, component)| component.storage_type == StorageType::SparseSet)
-            .map(|(id, _)| *id)
+            .map(|(id, c)| StageComponentId::new(*id, c.stage))
     }
 
     /// Returns a slice of all of the components in the archetype.
@@ -653,6 +658,31 @@ impl Archetype {
         self.components.contains(component_id)
     }
 
+    /// Checks if the archetype contains a specific component with stage lesser than the given stage. This runs in `O(1)` time.
+    #[inline]
+    pub fn contains_with_stage_lesser(&self, component_id: ComponentId, stage: Stage) -> bool {
+        if let Some(info) = self.components.get(component_id) {
+            info.stage < stage
+        } else {
+            false
+        }
+    }
+
+    /// Checks if the archetype contains a specific component with stage lesser or equal to the given stage. This runs in `O(1)` time.
+    pub fn contains_with_stage_leq(&self, component_id: ComponentId, stage: Stage) -> bool {
+        if let Some(info) = self.components.get(component_id) {
+            info.stage <= stage
+        } else {
+            false
+        }
+    }
+
+    /// Gets information about a component in the archetype.
+    #[inline]
+    pub fn get_component_info(&self, component_id: ComponentId) -> Option<&ArchetypeComponentInfo> {
+        self.components.get(component_id)
+    }
+
     /// Gets the type of storage where a component in the archetype can be found.
     /// Returns `None` if the component is not part of the archetype.
     /// This runs in `O(1)` time.
@@ -756,8 +786,8 @@ impl ArchetypeGeneration {
 
 #[derive(Hash, PartialEq, Eq)]
 struct ArchetypeComponents {
-    table_components: Box<[ComponentId]>,
-    sparse_set_components: Box<[ComponentId]>,
+    table_components: Box<[StageComponentId]>,
+    sparse_set_components: Box<[StageComponentId]>,
 }
 
 /// Maps a [`ComponentId`] to the list of [`Archetypes`]([`Archetype`]) that contain the [`Component`](crate::component::Component),
@@ -895,8 +925,8 @@ impl Archetypes {
         components: &Components,
         observers: &Observers,
         table_id: TableId,
-        table_components: Vec<ComponentId>,
-        sparse_set_components: Vec<ComponentId>,
+        table_components: Vec<StageComponentId>,
+        sparse_set_components: Vec<StageComponentId>,
     ) -> (ArchetypeId, bool) {
         let archetype_identity = ArchetypeComponents {
             sparse_set_components: sparse_set_components.into_boxed_slice(),

@@ -59,12 +59,11 @@ use crate::{
     },
     query::FilteredAccessSet,
     relationship::RelationshipHookMode,
+    stage::Stage,
     storage::SparseSet,
     system::{Local, ReadOnlySystemParam, SystemMeta, SystemParam},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
-
-use derive_more::derive::Into;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -393,10 +392,19 @@ pub struct Despawn {
 
 /// Wrapper around [`Entity`] for [`RemovedComponents`].
 /// Internally, `RemovedComponents` uses these as an [`Messages<RemovedComponentEntity>`].
-#[derive(Message, Debug, Clone, Into)]
+#[derive(Message, Debug, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug, Clone))]
-pub struct RemovedComponentEntity(Entity);
+pub struct RemovedComponentEntity {
+    entity: Entity,
+    stage: Stage,
+}
+
+impl From<RemovedComponentEntity> for Entity {
+    fn from(value: RemovedComponentEntity) -> Self {
+        value.entity
+    }
+}
 
 /// Wrapper around a [`MessageCursor<RemovedComponentEntity>`] so that we
 /// can differentiate messages between components.
@@ -465,10 +473,10 @@ impl RemovedComponentMessages {
     }
 
     /// Writes a removal message for the specified component.
-    pub fn write(&mut self, component_id: impl Into<ComponentId>, entity: Entity) {
+    pub fn write(&mut self, component_id: impl Into<ComponentId>, entity: Entity, stage: Stage) {
         self.event_sets
             .get_or_insert_with(component_id.into(), Default::default)
-            .write(RemovedComponentEntity(entity));
+            .write(RemovedComponentEntity { entity, stage });
     }
 }
 
@@ -509,31 +517,50 @@ pub struct RemovedComponents<'w, 's, T: Component> {
     component_id: ComponentIdFor<'s, T>,
     reader: Local<'s, RemovedComponentReader<T>>,
     message_sets: &'w RemovedComponentMessages,
+    stage: Stage,
 }
 
 /// Iterator over entities that had a specific component removed.
 ///
 /// See [`RemovedComponents`].
-pub type RemovedIter<'a> = iter::Map<
-    iter::Flatten<option::IntoIter<iter::Cloned<MessageIterator<'a, RemovedComponentEntity>>>>,
-    fn(RemovedComponentEntity) -> Entity,
->;
+pub struct RemovedIter<'a> {
+    iter: iter::Flatten<option::IntoIter<iter::Cloned<MessageIterator<'a, RemovedComponentEntity>>>>,
+    stage: Stage,
+}
+
+impl<'a> Iterator for RemovedIter<'a> {
+    type Item = Entity;
+    fn next(&mut self) -> Option<Self::Item> {
+        for msg in &mut self.iter {
+            if msg.stage <= self.stage {
+                return Some(msg.entity);
+            }
+        }
+        None
+    }
+}
 
 /// Iterator over entities that had a specific component removed.
 ///
 /// See [`RemovedComponents`].
-pub type RemovedIterWithId<'a> = iter::Map<
-    iter::Flatten<option::IntoIter<MessageIteratorWithId<'a, RemovedComponentEntity>>>,
-    fn(
-        (&RemovedComponentEntity, MessageId<RemovedComponentEntity>),
-    ) -> (Entity, MessageId<RemovedComponentEntity>),
->;
-
-fn map_id_messages(
-    (entity, id): (&RemovedComponentEntity, MessageId<RemovedComponentEntity>),
-) -> (Entity, MessageId<RemovedComponentEntity>) {
-    (entity.clone().into(), id)
+pub struct RemovedIterWithId<'a> {
+    iter: iter::Flatten<option::IntoIter<MessageIteratorWithId<'a, RemovedComponentEntity>>>,
+    stage: Stage,
 }
+
+impl<'a> Iterator for RemovedIterWithId<'a> {
+    type Item = (Entity, MessageId<RemovedComponentEntity>);
+    fn next(&mut self) -> Option<Self::Item> {
+        for (msg, id) in &mut self.iter {
+            if msg.stage <= self.stage {
+                return Some((msg.entity, id));
+            }
+        }
+        None
+    }
+}
+
+
 
 // For all practical purposes, the api surface of `RemovedComponents<T>`
 // should be similar to `MessageReader<T>` to reduce confusion.
@@ -573,33 +600,49 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     /// [`RemovedComponents`]'s message counter, which means subsequent message reads will not include messages
     /// that happened before now.
     pub fn read(&mut self) -> RemovedIter<'_> {
-        self.reader_mut_with_messages()
-            .map(|(reader, messages)| reader.read(messages).cloned())
-            .into_iter()
-            .flatten()
-            .map(RemovedComponentEntity::into)
+        let stage = self.stage;
+        RemovedIter {
+            iter: self
+                .reader_mut_with_messages()
+                .map(|(reader, messages)| reader.read(messages).cloned())
+                .into_iter()
+                .flatten(),
+            stage,
+        }
     }
 
     /// Like [`read`](Self::read), except also returning the [`MessageId`] of the messages.
     pub fn read_with_id(&mut self) -> RemovedIterWithId<'_> {
-        self.reader_mut_with_messages()
-            .map(|(reader, messages)| reader.read_with_id(messages))
-            .into_iter()
-            .flatten()
-            .map(map_id_messages)
+        let stage = self.stage;
+        RemovedIterWithId {
+            iter: self
+                .reader_mut_with_messages()
+                .map(|(reader, messages)| reader.read_with_id(messages))
+                .into_iter()
+                .flatten(),
+            stage,
+        }
     }
 
     /// Determines the number of removal messages available to be read from this [`RemovedComponents`] without consuming any.
     pub fn len(&self) -> usize {
         self.messages()
-            .map(|messages| self.reader.len(messages))
+            .map(|messages| {
+                let mut cursor = self.reader.reader.clone();
+                cursor
+                    .read(messages)
+                    .filter(|msg| {
+                        // println!("RemovedComponents::len: msg.stage={:?}, self.stage={:?}", msg.stage, self.stage);
+                        msg.stage <= self.stage
+                    })
+                    .count()
+            })
             .unwrap_or(0)
     }
 
     /// Returns `true` if there are no messages available to read.
     pub fn is_empty(&self) -> bool {
-        self.messages()
-            .is_none_or(|messages| self.reader.is_empty(messages))
+        self.len() == 0
     }
 
     /// Consumes all available messages.

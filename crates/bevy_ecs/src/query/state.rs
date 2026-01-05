@@ -1,14 +1,5 @@
 use crate::{
-    archetype::{Archetype, ArchetypeGeneration, ArchetypeId},
-    change_detection::Tick,
-    component::ComponentId,
-    entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
-    entity_disabling::DefaultQueryFilters,
-    prelude::FromWorld,
-    query::{FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery},
-    storage::{SparseSetIndex, TableId},
-    system::Query,
-    world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
+    archetype::{Archetype, ArchetypeGeneration, ArchetypeId}, change_detection::Tick, component::ComponentId, entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray}, entity_disabling::DefaultQueryFilters, prelude::FromWorld, query::{FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery}, stage::Stage, storage::{SparseSetIndex, TableId}, system::Query, world::{World, WorldId, unsafe_world_cell::UnsafeWorldCell}
 };
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
@@ -17,6 +8,7 @@ use crate::entity::UniqueEntityEquivalentSlice;
 use alloc::vec::Vec;
 use bevy_utils::prelude::DebugName;
 use core::{fmt, ptr};
+use std::println;
 use fixedbitset::FixedBitSet;
 use log::warn;
 #[cfg(feature = "trace")]
@@ -514,7 +506,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 // SAFETY: The validate_world call ensures that the world is the same the QueryState
                 // was initialized from.
                 unsafe {
-                    self.new_archetype(archetype);
+                    self.new_archetype(archetype, world.stage());
                 }
             }
         } else {
@@ -549,7 +541,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     // SAFETY: The validate_world call ensures that the world is the same the QueryState
                     // was initialized from.
                     unsafe {
-                        self.new_archetype(archetype);
+                        self.new_archetype(archetype, world.stage());
                     }
                 }
             }
@@ -583,11 +575,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// # Safety
     /// `archetype` must be from the `World` this state was initialized from.
-    pub unsafe fn new_archetype(&mut self, archetype: &Archetype) {
-        if D::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
-            && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
-            && self.matches_component_set(&|id| archetype.contains(id))
+    pub unsafe fn new_archetype(&mut self, archetype: &Archetype, stage: Stage) {
+        //println!("Checking archetype {:?}", archetype.id());
+        if D::matches_component_set(&self.fetch_state, &|id| archetype.contains_with_stage_leq(id, stage))
+            && F::matches_component_set(&self.filter_state, &|id| archetype.contains_with_stage_leq(id, stage))
+            && self.matches_component_set(&|id| archetype.contains_with_stage_leq(id, stage))
         {
+            //println!("Matched archetype {:?}", archetype.id());
             let archetype_index = archetype.id().index();
             if !self.matched_archetypes.contains(archetype_index) {
                 self.matched_archetypes.grow_and_insert(archetype_index);
@@ -696,6 +690,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // then there was a sparse set component in the `required` set, and the query has `is_dense = false`.
         let is_dense = self.is_dense;
 
+        println!("created query state1");
         QueryState {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
@@ -843,6 +838,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 .collect()
         };
 
+        println!("created query state1");
         QueryState {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,

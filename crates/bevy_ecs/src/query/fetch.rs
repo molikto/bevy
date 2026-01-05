@@ -1,22 +1,14 @@
 use crate::{
-    archetype::{Archetype, Archetypes},
-    bundle::Bundle,
-    change_detection::{ComponentTicksMut, ComponentTicksRef, MaybeLocation, Tick},
-    component::{Component, ComponentId, Components, Mutable, StorageType},
-    entity::{Entities, Entity, EntityLocation},
-    query::{
-        access_iter::{EcsAccessLevel, EcsAccessType},
-        Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery,
-    },
-    storage::{ComponentSparseSet, Table, TableRow},
-    world::{
-        unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
-        FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
-    },
+    archetype::{Archetype, Archetypes}, bundle::Bundle, change_detection::{ComponentTicksMut, ComponentTicksRef, MaybeLocation, Tick}, component::{Component, ComponentId, Components, Mutable, StorageType}, entity::{Entities, Entity, EntityLocation}, query::{
+        Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery, access_iter::{EcsAccessLevel, EcsAccessType}
+    }, stage::Stage, storage::{ComponentSparseSet, Table, TableRow}, world::{
+        EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, FilteredEntityMut, FilteredEntityRef, Mut, Ref, World, unsafe_world_cell::UnsafeWorldCell
+    }
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
 use core::{cell::UnsafeCell, iter, marker::PhantomData, panic::Location};
+use std::println;
 use variadics_please::all_tuples;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
@@ -1967,6 +1959,7 @@ pub struct WriteFetch<'w, T: Component> {
     >,
     last_run: Tick,
     this_run: Tick,
+    current_stage: Stage,
 }
 
 impl<T: Component> Clone for WriteFetch<'_, T> {
@@ -2010,6 +2003,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             ),
             last_run,
             this_run,
+            current_stage: world.stage(),
         }
     }
 
@@ -2024,9 +2018,17 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     unsafe fn set_archetype<'w>(
         fetch: &mut WriteFetch<'w, T>,
         component_id: &ComponentId,
-        _archetype: &'w Archetype,
+        archetype: &'w Archetype,
         table: &'w Table,
     ) {
+        if let Some(info) = archetype.get_component_info(*component_id) {
+            if info.stage < fetch.current_stage {
+                panic!(
+                    "Cannot modify component {:?} added in stage {:?} from stage {:?}",
+                    component_id, info.stage, fetch.current_stage
+                );
+            }
+        }
         if Self::IS_DENSE {
             // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
             unsafe {
@@ -2042,6 +2044,12 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         table: &'w Table,
     ) {
         let column = table.get_column(component_id).debug_checked_unwrap();
+        if column.stage() < fetch.current_stage {
+            panic!(
+                "Cannot modify component {:?} added in stage {:?} from stage {:?}",
+                component_id, column.stage(), fetch.current_stage
+            );
+        }
         let table_data = Some((
             column.get_data_slice(table.entity_count() as usize).into(),
             column
@@ -2336,6 +2344,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         archetype: &'w Archetype,
         table: &'w Table,
     ) {
+        println!("call2");
         fetch.matches = T::matches_component_set(state, &|id| archetype.contains(id));
         if fetch.matches {
             // SAFETY: The invariants are upheld by the caller.
@@ -2546,6 +2555,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
         archetype: &'w Archetype,
         _table: &Table,
     ) {
+        println!("call1");
         *fetch = archetype.contains(*state);
     }
 

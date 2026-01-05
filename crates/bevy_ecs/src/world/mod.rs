@@ -35,38 +35,21 @@ pub use identifier::WorldId;
 pub use spawn_batch::*;
 
 use crate::{
-    archetype::{ArchetypeId, Archetypes},
-    bundle::{
+    archetype::{ArchetypeId, Archetypes}, bundle::{
         Bundle, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
         NoBundleEffect,
-    },
-    change_detection::{
+    }, change_detection::{
         CheckChangeTicks, ComponentTicks, ComponentTicksMut, MaybeLocation, MutUntyped, Tick,
-    },
-    component::{
+    }, component::{
         Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo, Components,
         ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable, RequiredComponents,
         RequiredComponentsError,
-    },
-    entity::{Entities, Entity, EntityAllocator, EntityNotSpawnedError, SpawnError},
-    entity_disabling::DefaultQueryFilters,
-    error::{DefaultErrorHandler, ErrorHandler},
-    lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
-    message::{Message, MessageId, Messages, WriteBatchIds},
-    observer::Observers,
-    prelude::{Add, Despawn, Insert, Remove, Replace},
-    query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
-    relationship::RelationshipHookMode,
-    resource::Resource,
-    schedule::{Schedule, ScheduleLabel, Schedules},
-    storage::{ResourceData, Storages},
-    system::Commands,
-    world::{
+    }, entity::{Entities, Entity, EntityAllocator, EntityNotSpawnedError, SpawnError}, entity_disabling::DefaultQueryFilters, error::{DefaultErrorHandler, ErrorHandler}, lifecycle::{ADD, ComponentHooks, DESPAWN, INSERT, REMOVE, REPLACE, RemovedComponentMessages}, message::{Message, MessageId, Messages, WriteBatchIds}, observer::Observers, prelude::{Add, Despawn, Insert, Remove, Replace}, query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState}, relationship::RelationshipHookMode, resource::Resource, schedule::{Schedule, ScheduleLabel, Schedules}, stage::Stage, storage::{ResourceData, Storages}, system::Commands, world::{
         command_queue::RawCommandQueue,
         error::{
             EntityDespawnError, EntityMutableFetchError, TryInsertBatchError, TryRunScheduleError,
         },
-    },
+    }
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
@@ -106,6 +89,7 @@ pub struct World {
     pub(crate) observers: Observers,
     pub(crate) removed_components: RemovedComponentMessages,
     pub(crate) change_tick: AtomicU32,
+    pub(crate) stage: AtomicU32,
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
     pub(crate) last_trigger_id: u32,
@@ -126,6 +110,7 @@ impl Default for World {
             removed_components: Default::default(),
             // Default value is `1`, and `last_change_tick`s default to `0`, such that changes
             // are detected on first system runs and for direct world queries.
+            stage: AtomicU32::new(0),
             change_tick: AtomicU32::new(1),
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
@@ -2998,6 +2983,18 @@ impl World {
         let prev_tick = *change_tick;
         *change_tick = change_tick.wrapping_add(1);
         Tick::new(prev_tick)
+    }
+
+    /// Reads the current stage of this world.
+    #[inline]
+    pub fn stage(&self) -> Stage {
+        let stage = self.stage.load(Ordering::Acquire);
+        Stage::new(stage as u16)
+    }
+
+    /// Sets the current stage of this world.
+    pub fn set_stage(&self, stage: Stage) {
+        self.stage.store(stage.get() as u32, Ordering::Release);
     }
 
     /// Reads the current change tick of this world.
