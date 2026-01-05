@@ -11,6 +11,7 @@ use bevy_ecs::{
     resource::Resource,
     world::World,
 };
+use bevy_ecs::stage::Stage;
 use bevy_reflect::PartialReflect;
 use bevy_utils::default;
 
@@ -73,6 +74,7 @@ pub struct DynamicSceneBuilder<'w> {
     extracted_scene: BTreeMap<Entity, DynamicEntity>,
     component_filter: SceneFilter,
     resource_filter: SceneFilter,
+    stage_filter: Option<Vec<Stage>>,
     original_world: &'w World,
     entity_map: Option<&'w mut EntityHashMap<Entity>>,
 }
@@ -86,8 +88,15 @@ impl<'w> DynamicSceneBuilder<'w> {
             component_filter: SceneFilter::default(),
             resource_filter: SceneFilter::default(),
             original_world: world,
+            stage_filter: None,
             entity_map: None,
         }
+    }
+    /// Set the stage filter to use when extracting entities
+    #[must_use]
+    pub fn with_stage_filter(mut self, stages: Vec<Stage>) -> Self {
+        self.stage_filter = Some(stages);
+        self
     }
 
     /// Set the entity map to use for remapping entities in components and resources.
@@ -317,7 +326,12 @@ impl<'w> DynamicSceneBuilder<'w> {
             };
 
             let original_entity = self.original_world.entity(entity);
-            for &component_id in original_entity.archetype().components().iter() {
+            for (component_id, info) in original_entity.archetype().component_infos() {
+                if let Some(stage_filter) = &self.stage_filter {
+                    if !stage_filter.contains(&info.stage) {
+                        continue;
+                    }
+                }
                 let mut extract_and_push = || {
                     let type_id = self
                         .original_world
