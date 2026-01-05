@@ -2023,10 +2023,11 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     ) {
         if let Some(info) = archetype.get_component_info(*component_id) {
             if info.stage < fetch.current_stage {
-                panic!(
+                log::error!(
                     "Cannot modify component {:?} added in stage {:?} from stage {:?}",
                     component_id, info.stage, fetch.current_stage
                 );
+                return;
             }
         }
         if Self::IS_DENSE {
@@ -2045,10 +2046,11 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     ) {
         let column = table.get_column(component_id).debug_checked_unwrap();
         if column.stage() < fetch.current_stage {
-            panic!(
+            log::error!(
                 "Cannot modify component {:?} added in stage {:?} from stage {:?}",
                 component_id, column.stage(), fetch.current_stage
             );
+            return;
         }
         let table_data = Some((
             column.get_data_slice(table.entity_count() as usize).into(),
@@ -2065,7 +2067,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
         unsafe { fetch.components.set_table(table_data) };
     }
-
+    
     fn update_component_access(&component_id: &ComponentId, access: &mut FilteredAccess) {
         assert!(
             !access.access().has_component_read(component_id),

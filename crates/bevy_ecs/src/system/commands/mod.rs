@@ -19,7 +19,7 @@ use crate::{
         Entities, Entity, EntityAllocator, EntityClonerBuilder, EntityNotSpawnedError,
         InvalidEntityError, OptIn, OptOut,
     }, error::{BevyError, CommandWithEntity, ErrorContext, HandleError, warn}, event::{EntityEvent, Event}, message::Message, observer::Observer, resource::Resource, schedule::ScheduleLabel, stage::{Stage, StageMarker}, system::{
-        Deferred, IntoObserverSystem, IntoSystem, RegisteredSystem, SystemId, SystemInput, SystemParam, SystemParamValidationError
+        Deferred, IntoObserverSystem, IntoSystem, ReadOnlySystemParam, RegisteredSystem, SystemId, SystemInput, SystemParam, SystemParamValidationError
     }, world::{
         CommandQueue, EntityWorldMut, FromWorld, World, command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell
     }
@@ -213,12 +213,26 @@ const _: () = {
 };
 
 
-pub struct AtStage <T: SystemParam, M: Send +Sync + 'static> {
-    pub commands: T,
-    pub _marker: PhantomData<M>,
+/// A [`SystemParam`] that provides access to another [`SystemParam`] at a specific stage.
+pub struct AtStage <M: Send +Sync + 'static, T: SystemParam> {
+    commands: T,
+    _marker: PhantomData<M>,
 }
 
-unsafe impl <T: SystemParam, M: Send +Sync + 'static> SystemParam for AtStage<T, M> {
+impl <M: Send +Sync + 'static, T: SystemParam> core::ops::Deref for AtStage<M, T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.commands
+    }
+}
+
+impl <M: Send +Sync + 'static, T: SystemParam> core::ops::DerefMut for AtStage<M, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.commands
+    }
+}
+
+unsafe impl <M: Send +Sync + 'static, T: SystemParam> SystemParam for AtStage<M, T> {
     type State = T::State;
 
     type Item<'world, 'state> = T::Item<'world, 'state>;
@@ -268,6 +282,10 @@ unsafe impl <T: SystemParam, M: Send +Sync + 'static> SystemParam for AtStage<T,
         }
     }
 }
+
+unsafe impl<M: Send + Sync + 'static, T: ReadOnlySystemParam> ReadOnlySystemParam for AtStage<M, T> {
+}
+
 enum InternalQueue<'s> {
     CommandQueue(Deferred<'s, CommandQueue>),
     RawCommandQueue(RawCommandQueue),

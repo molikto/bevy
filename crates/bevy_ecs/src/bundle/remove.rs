@@ -338,16 +338,11 @@ impl BundleInfo {
             for component_id in self.iter_explicit_components() {
                 if let Some(info) = current_archetype.get_component_info(component_id) {
                     if info.stage < current_stage {
-                        // Hack to allow running systems across stages
-                        if let Some(component_info) = components.get_info(component_id) {
-                            if component_info.name().starts_with("bevy_ecs::system::system_registry::RegisteredSystem") {
-                                continue;
-                            }
-                        }
-                        panic!(
+                        log::error!(
                             "Cannot remove component {:?} added in stage {:?} from stage {:?}",
                             component_id, info.stage, current_stage
                         );
+                        return (None, false);
                     }
                 }
             }

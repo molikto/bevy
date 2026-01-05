@@ -8,10 +8,22 @@ use crate::{
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
+
+/// Used to mark a stage by type
 #[derive(Debug, Clone, Copy, Resource)]
 pub struct StageMarker<T: Send +Sync + 'static> {
+    /// The stage.
     pub stage: Stage,
-    pub _marker: PhantomData<T>,
+    _marker: PhantomData<T>,
+}
+impl <T: Send +Sync + 'static> StageMarker<T> {
+    /// Creates a new `StageMarker` wrapping the given stage.
+    pub fn new(stage: Stage) -> Self {
+        Self {
+            stage,
+            _marker: PhantomData,
+        }
+    }
 }
 
 /// World can have a sequence of stages
