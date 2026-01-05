@@ -1,11 +1,18 @@
 //! Stage system
 
+use core::marker::PhantomData;
+
 use crate::{
-    component::ComponentId,
-    storage::SparseSetIndex,
+    component::ComponentId, prelude::Resource, storage::SparseSetIndex
 };
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
+
+#[derive(Debug, Clone, Copy, Resource)]
+pub struct StageMarker<T: Send +Sync + 'static> {
+    pub stage: Stage,
+    pub _marker: PhantomData<T>,
+}
 
 /// World can have a sequence of stages
 /// Component added in previous stages are immutable

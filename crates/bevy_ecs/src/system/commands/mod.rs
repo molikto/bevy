@@ -15,28 +15,14 @@ use alloc::boxed::Box;
 use core::marker::PhantomData;
 
 use crate::{
-    self as bevy_ecs,
-    bundle::{Bundle, InsertMode, NoBundleEffect},
-    change_detection::{MaybeLocation, Mut},
-    component::{Component, ComponentId, Mutable},
-    entity::{
+    self as bevy_ecs, bundle::{Bundle, InsertMode, NoBundleEffect}, change_detection::{MaybeLocation, Mut}, component::{Component, ComponentId, Mutable}, entity::{
         Entities, Entity, EntityAllocator, EntityClonerBuilder, EntityNotSpawnedError,
         InvalidEntityError, OptIn, OptOut,
-    },
-    error::{warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
-    event::{EntityEvent, Event},
-    message::Message,
-    observer::Observer,
-    resource::Resource,
-    schedule::ScheduleLabel,
-    system::{
-        Deferred, IntoObserverSystem, IntoSystem, RegisteredSystem, SystemId, SystemInput,
-        SystemParamValidationError,
-    },
-    world::{
-        command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, CommandQueue,
-        EntityWorldMut, FromWorld, World,
-    },
+    }, error::{BevyError, CommandWithEntity, ErrorContext, HandleError, warn}, event::{EntityEvent, Event}, message::Message, observer::Observer, resource::Resource, schedule::ScheduleLabel, stage::{Stage, StageMarker}, system::{
+        Deferred, IntoObserverSystem, IntoSystem, RegisteredSystem, SystemId, SystemInput, SystemParam, SystemParamValidationError
+    }, world::{
+        CommandQueue, EntityWorldMut, FromWorld, World, command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell
+    }
 };
 
 /// A [`Command`] queue to perform structural changes to the [`World`].
@@ -226,6 +212,62 @@ const _: () = {
     }
 };
 
+
+pub struct AtStage <T: SystemParam, M: Send +Sync + 'static> {
+    pub commands: T,
+    pub _marker: PhantomData<M>,
+}
+
+unsafe impl <T: SystemParam, M: Send +Sync + 'static> SystemParam for AtStage<T, M> {
+    type State = T::State;
+
+    type Item<'world, 'state> = T::Item<'world, 'state>;
+
+    fn init_state(world: &mut World) -> Self::State {
+        T::init_state(world)
+    }
+
+    fn init_access(
+        state: &Self::State,
+        system_meta: &mut super::SystemMeta,
+        component_access_set: &mut crate::query::FilteredAccessSet,
+        world: &mut World,
+    ) {
+        T::init_access(state, system_meta, component_access_set, world);
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &super::SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: crate::change_detection::Tick,
+    ) -> Self::Item<'world, 'state> {
+        unsafe {
+            T::get_param(state, system_meta, world, change_tick)
+        }
+    }
+
+    fn apply(state: &mut Self::State, system_meta: &super::SystemMeta, world: &mut World) {
+        let stage = world.get_resource::<StageMarker<M>>().unwrap().stage;
+        world.set_stage(stage);
+        T::apply(state, system_meta, world);
+    }
+
+    fn queue(state: &mut Self::State, system_meta: &super::SystemMeta, world: crate::world::DeferredWorld) {
+        T::queue(state, system_meta, world);
+    }
+
+    unsafe fn validate_param(
+            state: &mut Self::State,
+            system_meta: &super::SystemMeta,
+            world: UnsafeWorldCell,
+        ) -> Result<(), SystemParamValidationError> {
+            unsafe {
+
+            T::validate_param(state, system_meta, world)
+        }
+    }
+}
 enum InternalQueue<'s> {
     CommandQueue(Deferred<'s, CommandQueue>),
     RawCommandQueue(RawCommandQueue),
