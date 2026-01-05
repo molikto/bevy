@@ -6,18 +6,7 @@ use crate::{
     archetype::{
         Archetype, ArchetypeAfterBundleInsert, ArchetypeCreated, ArchetypeId, Archetypes,
         ComponentStatus,
-    },
-    bundle::{ArchetypeMoveType, Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
-    change_detection::{MaybeLocation, Tick},
-    component::{Components, StorageType},
-    entity::{Entities, Entity, EntityLocation},
-    event::EntityComponentsTrigger,
-    lifecycle::{Add, Insert, Replace, ADD, INSERT, REPLACE},
-    observer::Observers,
-    query::DebugCheckedUnwrap as _,
-    relationship::RelationshipHookMode,
-    storage::{SparseSets, Storages, Table, TableRow},
-    world::{unsafe_world_cell::UnsafeWorldCell, World},
+    }, bundle::{ArchetypeMoveType, Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode}, change_detection::{MaybeLocation, Tick}, component::{Components, StorageType}, entity::{Entities, Entity, EntityLocation}, event::EntityComponentsTrigger, lifecycle::{ADD, Add, INSERT, Insert, REPLACE, Replace}, observer::Observers, query::DebugCheckedUnwrap as _, relationship::RelationshipHookMode, stage::Stage, storage::{SparseSets, Storages, Table, TableRow}, world::{World, unsafe_world_cell::UnsafeWorldCell}
 };
 
 // SAFETY: We have exclusive world access so our pointers can't be invalidated externally
@@ -58,12 +47,14 @@ impl<'w> BundleInserter<'w> {
         // SAFETY: We will not make any accesses to the command queue, component or resource data of this world
         let bundle_info = world.bundles.get_unchecked(bundle_id);
         let bundle_id = bundle_info.id();
+        let stage = world.stage();
         let (new_archetype_id, is_new_created) = bundle_info.insert_bundle_into_archetype(
             &mut world.archetypes,
             &mut world.storages,
             &world.components,
             &world.observers,
             archetype_id,
+            stage
         );
 
         let inserter = if new_archetype_id == archetype_id {
@@ -72,7 +63,7 @@ impl<'w> BundleInserter<'w> {
             let archetype_after_insert = unsafe {
                 archetype
                     .edges()
-                    .get_archetype_after_bundle_insert_internal(bundle_id)
+                    .get_archetype_after_bundle_insert_internal(bundle_id, stage)
                     .debug_checked_unwrap()
             };
             let table_id = archetype.table_id();
@@ -93,7 +84,7 @@ impl<'w> BundleInserter<'w> {
             let archetype_after_insert = unsafe {
                 archetype
                     .edges()
-                    .get_archetype_after_bundle_insert_internal(bundle_id)
+                    .get_archetype_after_bundle_insert_internal(bundle_id, stage)
                     .debug_checked_unwrap()
             };
             let table_id = archetype.table_id();
@@ -497,10 +488,11 @@ impl BundleInfo {
         components: &Components,
         observers: &Observers,
         archetype_id: ArchetypeId,
+        stage: Stage,
     ) -> (ArchetypeId, bool) {
         if let Some(archetype_after_insert_id) = archetypes[archetype_id]
             .edges()
-            .get_archetype_after_bundle_insert(self.id)
+            .get_archetype_after_bundle_insert(self.id, stage)
         {
             return (archetype_after_insert_id, false);
         }
@@ -522,8 +514,8 @@ impl BundleInfo {
                 // SAFETY: component_id exists
                 let component_info = unsafe { components.get_info_unchecked(component_id) };
                 match component_info.storage_type() {
-                    StorageType::Table => new_table_components.push(component_id),
-                    StorageType::SparseSet => new_sparse_set_components.push(component_id),
+                    StorageType::Table => new_table_components.push(component_id.at_stage(stage)),
+                    StorageType::SparseSet => new_sparse_set_components.push(component_id.at_stage(stage)),
                 }
             }
         }
@@ -536,10 +528,10 @@ impl BundleInfo {
                 let component_info = unsafe { components.get_info_unchecked(component_id) };
                 match component_info.storage_type() {
                     StorageType::Table => {
-                        new_table_components.push(component_id);
+                        new_table_components.push(component_id.at_stage(stage));
                     }
                     StorageType::SparseSet => {
-                        new_sparse_set_components.push(component_id);
+                        new_sparse_set_components.push(component_id.at_stage(stage));
                     }
                 }
             }
@@ -549,8 +541,7 @@ impl BundleInfo {
             let edges = current_archetype.edges_mut();
             // The archetype does not change when we insert this bundle.
             edges.cache_archetype_after_bundle_insert(
-                self.id,
-                archetype_id,
+                self.id,                stage,                archetype_id,
                 bundle_status,
                 added_required_components,
                 added,
@@ -607,6 +598,7 @@ impl BundleInfo {
                 .edges_mut()
                 .cache_archetype_after_bundle_insert(
                     self.id,
+                    stage,
                     new_archetype_id,
                     bundle_status,
                     added_required_components,

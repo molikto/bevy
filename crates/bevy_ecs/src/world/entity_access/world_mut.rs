@@ -1,27 +1,11 @@
 use crate::{
-    archetype::Archetype,
-    bundle::{
+    archetype::Archetype, bundle::{
         Bundle, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle, InsertMode,
-    },
-    change_detection::{ComponentTicks, MaybeLocation, MutUntyped, Tick},
-    component::{Component, ComponentId, Components, Mutable, StorageType},
-    entity::{Entity, EntityCloner, EntityClonerBuilder, EntityLocation, OptIn, OptOut},
-    event::{EntityComponentsTrigger, EntityEvent},
-    lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
-    observer::Observer,
-    query::{
-        has_conflicts, Access, DebugCheckedUnwrap, QueryAccessError, ReadOnlyQueryData,
-        ReleaseStateQueryData,
-    },
-    relationship::RelationshipHookMode,
-    resource::Resource,
-    storage::{SparseSets, Table},
-    system::IntoObserverSystem,
-    world::{
-        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, ComponentEntry,
-        DynamicComponentFetch, EntityMut, EntityRef, FilteredEntityMut, FilteredEntityRef, Mut,
-        OccupiedComponentEntry, Ref, VacantComponentEntry, World,
-    },
+    }, change_detection::{ComponentTicks, MaybeLocation, MutUntyped, Tick}, component::{Component, ComponentId, Components, Mutable, StorageType}, entity::{Entity, EntityCloner, EntityClonerBuilder, EntityLocation, OptIn, OptOut}, event::{EntityComponentsTrigger, EntityEvent}, lifecycle::{DESPAWN, Despawn, REMOVE, REPLACE, Remove, Replace}, observer::Observer, query::{
+        Access, DebugCheckedUnwrap, QueryAccessError, ReadOnlyQueryData, ReleaseStateQueryData, has_conflicts
+    }, relationship::RelationshipHookMode, resource::Resource, stage::StageComponentId, storage::{SparseSets, Table}, system::IntoObserverSystem, world::{
+        ComponentEntry, DynamicComponentFetch, EntityMut, EntityRef, FilteredEntityMut, FilteredEntityRef, Mut, OccupiedComponentEntry, Ref, VacantComponentEntry, World, error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell
+    }
 };
 
 use alloc::vec::Vec;
@@ -1616,10 +1600,11 @@ impl<'w> EntityWorldMut<'w> {
 
         // do the despawn
         let change_tick = self.world.change_tick();
+        let stage = self.world.stage();
         for component_id in archetype.components() {
             self.world
                 .removed_components
-                .write(*component_id, self.entity);
+                .write(*component_id, self.entity, stage);
         }
         // SAFETY: Since we had a location, and it was valid, this is safe.
         unsafe {
@@ -1656,7 +1641,7 @@ impl<'w> EntityWorldMut<'w> {
             }
             table_row = remove_result.table_row;
 
-            for component_id in archetype.sparse_set_components() {
+            for StageComponentId { component_id, .. } in archetype.sparse_set_components() {
                 // set must have existed for the component to be added.
                 let sparse_set = self
                     .world

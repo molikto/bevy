@@ -1,9 +1,5 @@
 use crate::{
-    change_detection::{CheckChangeTicks, ComponentTicks, MaybeLocation, Tick},
-    component::{ComponentId, ComponentInfo, Components},
-    entity::Entity,
-    query::DebugCheckedUnwrap,
-    storage::{AbortOnPanic, ImmutableSparseSet, SparseSet},
+    change_detection::{CheckChangeTicks, ComponentTicks, MaybeLocation, Tick}, component::{ComponentId, ComponentInfo, Components}, entity::Entity, query::DebugCheckedUnwrap, stage::{Stage, StageComponentId}, storage::{AbortOnPanic, ImmutableSparseSet, SparseSet}
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::HashMap;
@@ -152,10 +148,10 @@ impl TableBuilder {
 
     /// Add a new column to the [`Table`]. Specify the component which will be stored in the [`column`](Column) using its [`ComponentId`]
     #[must_use]
-    pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
+    pub fn add_column(mut self, component_info: &ComponentInfo, stage: Stage) -> Self {
         self.columns.insert(
             component_info.id(),
-            Column::with_capacity(component_info, self.entities.capacity()),
+            Column::with_capacity(component_info, self.entities.capacity(), stage),
         );
         self
     }
@@ -726,12 +722,13 @@ impl Table {
     }
 }
 
+
 /// A collection of [`Table`] storages, indexed by [`TableId`]
 ///
 /// Can be accessed via [`Storages`](crate::storage::Storages)
 pub struct Tables {
     tables: Vec<Table>,
-    table_ids: HashMap<Box<[ComponentId]>, TableId>,
+    table_ids: HashMap<Box<[StageComponentId]>, TableId>,
 }
 
 impl Default for Tables {
@@ -793,7 +790,7 @@ impl Tables {
     /// `component_ids` must contain components that exist in `components`
     pub(crate) unsafe fn get_id_or_insert(
         &mut self,
-        component_ids: &[ComponentId],
+        component_ids: &[StageComponentId],
         components: &Components,
     ) -> TableId {
         if component_ids.is_empty() {
@@ -807,8 +804,8 @@ impl Tables {
             .from_key(component_ids)
             .or_insert_with(|| {
                 let mut table = TableBuilder::with_capacity(0, component_ids.len());
-                for component_id in component_ids {
-                    table = table.add_column(components.get_info_unchecked(*component_id));
+                for StageComponentId { component_id, stage } in component_ids {
+                    table = table.add_column(components.get_info_unchecked(*component_id), *stage);
                 }
                 tables.push(table.build());
                 (component_ids.into(), TableId::from_usize(tables.len() - 1))
@@ -869,11 +866,7 @@ impl Drop for Table {
 #[cfg(test)]
 mod tests {
     use crate::{
-        change_detection::{MaybeLocation, Tick},
-        component::{Component, ComponentIds, Components, ComponentsRegistrator},
-        entity::{Entity, EntityIndex},
-        ptr::OwningPtr,
-        storage::{TableBuilder, TableId, TableRow, Tables},
+        change_detection::{MaybeLocation, Tick}, component::{Component, ComponentIds, Components, ComponentsRegistrator}, entity::{Entity, EntityIndex}, ptr::OwningPtr, stage::Stage, storage::{TableBuilder, TableId, TableRow, Tables}
     };
     use alloc::vec::Vec;
 
@@ -902,7 +895,7 @@ mod tests {
         let component_id = registrator.register_component::<W<TableRow>>();
         let columns = &[component_id];
         let mut table = TableBuilder::with_capacity(0, columns.len())
-            .add_column(components.get_info(component_id).unwrap())
+            .add_column(components.get_info(component_id).unwrap(), Stage::new(0))
             .build();
         let entities = (0..200)
             .map(|index| Entity::from_index(EntityIndex::from_raw_u32(index).unwrap()))

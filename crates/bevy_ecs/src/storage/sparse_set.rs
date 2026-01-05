@@ -3,6 +3,7 @@ use crate::{
     component::{ComponentId, ComponentInfo},
     entity::{Entity, EntityIndex},
     query::DebugCheckedUnwrap,
+    stage::Stage,
     storage::{AbortOnPanic, Column, TableRow, VecExtensions},
 };
 use alloc::{boxed::Box, vec::Vec};
@@ -136,8 +137,9 @@ impl ComponentSparseSet {
     /// initial `capacity`.
     pub(crate) fn new(component_info: &ComponentInfo, capacity: usize) -> Self {
         let entities = Vec::with_capacity(capacity);
+        // FIXME the stage is wrong here
         Self {
-            dense: Column::with_capacity(component_info, entities.capacity()),
+            dense: Column::with_capacity(component_info, entities.capacity(), Stage::new(0)),
             entities,
             sparse: Default::default(),
         }

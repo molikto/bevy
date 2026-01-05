@@ -2,28 +2,15 @@
 
 use super::{Mut, Ref, World, WorldId};
 use crate::{
-    archetype::{Archetype, Archetypes},
-    bundle::Bundles,
-    change_detection::{
+    archetype::{Archetype, Archetypes}, bundle::Bundles, change_detection::{
         ComponentTickCells, ComponentTicks, ComponentTicksMut, ComponentTicksRef, MaybeLocation,
         MutUntyped, Tick,
-    },
-    component::{ComponentId, Components, Mutable, StorageType},
-    entity::{
+    }, component::{ComponentId, Components, Mutable, StorageType}, entity::{
         ContainsEntity, Entities, Entity, EntityAllocator, EntityLocation, EntityNotSpawnedError,
-    },
-    error::{DefaultErrorHandler, ErrorHandler},
-    lifecycle::RemovedComponentMessages,
-    observer::Observers,
-    prelude::Component,
-    query::{DebugCheckedUnwrap, QueryAccessError, ReleaseStateQueryData},
-    resource::Resource,
-    storage::{ComponentSparseSet, Storages, Table},
-    world::RawCommandQueue,
+    }, error::{DefaultErrorHandler, ErrorHandler}, lifecycle::RemovedComponentMessages, observer::Observers, prelude::Component, query::{DebugCheckedUnwrap, QueryAccessError, ReleaseStateQueryData}, resource::Resource, stage::Stage, storage::{ComponentSparseSet, Storages, Table}, world::RawCommandQueue
 };
-use bevy_platform::sync::atomic::Ordering;
 use bevy_ptr::Ptr;
-use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
+use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr, sync::atomic::Ordering};
 use thiserror::Error;
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
@@ -308,6 +295,14 @@ impl<'w> UnsafeWorldCell<'w> {
         // SAFETY:
         // - we only access world metadata
         &unsafe { self.world_metadata() }.bundles
+    }
+
+    /// Gets the current stage of this world.
+    #[inline]
+    pub fn stage(self) -> Stage {
+        // SAFETY:
+        // - we only access world metadata
+        unsafe { self.world_metadata() }.stage()
     }
 
     /// Gets the current change tick of this world.

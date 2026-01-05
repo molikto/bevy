@@ -1,6 +1,7 @@
 use super::*;
 use crate::{
     change_detection::MaybeLocation,
+    stage::Stage,
     storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr},
 };
 use core::{mem::needs_drop, panic::Location};
@@ -27,11 +28,12 @@ pub struct Column {
     pub(super) added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_by: MaybeLocation<ThinArrayPtr<UnsafeCell<&'static Location<'static>>>>,
+    pub(super) stage: Stage,
 }
 
 impl Column {
     /// Create a new [`Column`] with the given `capacity`.
-    pub fn with_capacity(component_info: &ComponentInfo, capacity: usize) -> Self {
+    pub fn with_capacity(component_info: &ComponentInfo, capacity: usize, stage: Stage) -> Self {
         Self {
             // SAFETY: The components stored in this columns will match the information in `component_info`
             data: unsafe {
@@ -40,6 +42,7 @@ impl Column {
             added_ticks: ThinArrayPtr::with_capacity(capacity),
             changed_ticks: ThinArrayPtr::with_capacity(capacity),
             changed_by: MaybeLocation::new_with(|| ThinArrayPtr::with_capacity(capacity)),
+            stage,
         }
     }
 
@@ -438,5 +441,11 @@ impl Column {
     #[inline]
     pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
         self.data.get_drop()
+    }
+
+    /// Get the stage of the component in this column.
+    #[inline]
+    pub fn stage(&self) -> Stage {
+        self.stage
     }
 }
