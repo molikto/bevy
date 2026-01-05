@@ -353,9 +353,9 @@ pub(crate) struct ArchetypeSwapRemoveResult {
 /// Internal metadata for a [`Component`] within a given [`Archetype`].
 ///
 /// [`Component`]: crate::component::Component
-pub(crate) struct ArchetypeComponentInfo {
-    pub(crate) storage_type: StorageType,
-    pub(crate) stage: Stage,
+pub struct ArchetypeComponentInfo {
+    pub storage_type: StorageType,
+    pub stage: Stage,
 }
 
 bitflags::bitflags! {
@@ -534,6 +534,18 @@ impl Archetype {
     #[inline]
     pub fn components(&self) -> &[ComponentId] {
         self.components.indices()
+    }
+
+
+    /// Returns an iterator of all of the components in the archetype with their infos.
+    #[inline]
+    pub fn component_infos(
+        &self,
+    ) -> impl Iterator<Item = (ComponentId, ArchetypeComponentInfo)> + '_ {
+        self.components.iter().map(|(id, info)| (*id, ArchetypeComponentInfo {
+            storage_type: info.storage_type,
+            stage: info.stage,
+        }))
     }
 
     /// Gets an iterator of all of the components in the archetype.
