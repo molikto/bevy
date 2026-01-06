@@ -152,7 +152,31 @@ mod tests {
             }
         }
 
-        let _ = world.run_system_cached(remove_a);
+        let _ = world.run_system_cached(remove_a).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn cannot_move_children_from_previous_stage() {
+        let mut world = World::new();
+        let start_stage = Stage::new(1);
+        world.set_stage(start_stage);
+        let parent = world.spawn(A).id();
+        let child = world.spawn((A, B, ChildOf(parent))).id();
+        let _new_parent = world.spawn(B).id();
+
+        fn move_children(
+            mut commands: Commands,
+            child_q: Single<Entity, (With<ChildOf>, With<B>)>,
+            new_parent_q: Single<Entity, (Without<A>, With<B>)>,
+        ) {
+            println!("moving child");
+            let child = child_q.into_inner();
+            let new_parent = new_parent_q.into_inner();
+            commands.entity(new_parent).add_child(child);
+        }
+        world.set_stage(start_stage.next());
+        let _ = world.run_system_cached(move_children).unwrap();
     }
 
     #[test]
@@ -166,7 +190,7 @@ mod tests {
                 commands.entity(e).remove::<A>();
             }
         }
-        let _ = world.run_system_cached(remove_a);
+        let _ = world.run_system_cached(remove_a).unwrap();
     }
 
     #[test]
@@ -183,7 +207,7 @@ mod tests {
                 let _ = &mut *a;
             }
         }
-        let _ = world.run_system_cached(modify_a);
+        let _ = world.run_system_cached(modify_a).unwrap();
     }
 
     #[test]
@@ -209,7 +233,7 @@ mod tests {
                 let _ = &mut *a;
             }
         }
-        let _ = world.run_system_cached(modify_a);
+        let _ = world.run_system_cached(modify_a).unwrap();
     }
 
     #[test]
@@ -480,8 +504,8 @@ mod tests {
         world.insert_resource(StageMarker::<M>::new(Stage::new(1)));
         fn insert_a_at_stage_m(
             mut commands: AtStage<M, Commands>,
-            query: Query<Entity, With<A>>,
-            stage: Stage,
+            _query: Query<Entity, With<A>>,
+            _stage: Stage,
         ) {
             commands.spawn(A);
         }
@@ -515,7 +539,7 @@ mod tests {
     #[test]
     fn move_to_stage() {
         let mut world = World::new();
-        let entity = world.spawn(A).id();
+        let _entity = world.spawn(A).id();
         // changes all data from stage 0 to stage 2
         // it rewrites the archetypes and component storages
         // the new stage must be empty, otherwise we cannot merge safely

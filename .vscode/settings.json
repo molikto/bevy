@@ -6,4 +6,9 @@
   "rust-analyzer.cargo.target": "aarch64-apple-darwin",
   // "rust-analyzer.cargo.target": "aarch64-linux-android",
   //"rust-analyzer.cargo.target": "wasm32-unknown-unknown",
+  "rust-analyzer.check.allTargets": false,
+  "rust-analyzer.check.extraArgs": [
+      "--bins",
+      "--lib"
+  ]
 }

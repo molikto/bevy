@@ -44,7 +44,7 @@ use crate::{
         Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo, Components,
         ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable, RequiredComponents,
         RequiredComponentsError,
-    }, entity::{Entities, Entity, EntityAllocator, EntityNotSpawnedError, SpawnError}, entity_disabling::DefaultQueryFilters, error::{DefaultErrorHandler, ErrorHandler}, lifecycle::{ADD, ComponentHooks, DESPAWN, INSERT, REMOVE, REPLACE, RemovedComponentMessages}, message::{Message, MessageId, Messages, WriteBatchIds}, observer::Observers, prelude::{Add, Despawn, Insert, Remove, Replace}, query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState}, relationship::RelationshipHookMode, resource::Resource, schedule::{Schedule, ScheduleLabel, Schedules}, stage::Stage, storage::{ResourceData, Storages}, system::Commands, world::{
+    }, entity::{Entities, Entity, EntityAllocator, EntityNotSpawnedError, SpawnError}, entity_disabling::DefaultQueryFilters, error::{DefaultErrorHandler, ErrorHandler}, lifecycle::{ADD, ComponentHooks, DESPAWN, INSERT, REMOVE, REPLACE, RemovedComponentMessages}, message::{Message, MessageId, Messages, WriteBatchIds}, observer::Observers, prelude::{Add, Despawn, Insert, Remove, Replace}, query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState}, relationship::RelationshipHookMode, resource::Resource, schedule::{Schedule, ScheduleLabel, Schedules}, stage::{self, Stage, StageMarker}, storage::{ResourceData, Storages}, system::Commands, world::{
         command_queue::RawCommandQueue,
         error::{
             EntityDespawnError, EntityMutableFetchError, TryInsertBatchError, TryRunScheduleError,
@@ -1460,6 +1460,7 @@ impl World {
         }
     }
 
+    /// Rewrites all component storage stages from `from` to `to`.
     pub fn rewrite_all_stage(&mut self, from: Stage, to: Stage) {
         for archetype in &mut self.archetypes.archetypes {
              archetype.rewrite_all_stage(from, to);
@@ -3007,6 +3008,29 @@ impl World {
     /// Sets the current stage of this world.
     pub fn set_stage(&self, stage: Stage) {
         self.stage.store(stage.get() as u32, Ordering::Release);
+    }
+
+    /// Sets the current stage of this world using a [`StageMarker`].
+    pub fn set_stage_by_marker<T: Send + Sync + 'static>(&self) {
+        let marker = self.resource::<StageMarker<T>>();
+        self.set_stage(marker.stage);
+    }
+
+    /// Runs a closure with the world set to the stage associated with the given [`StageMarker`].
+    pub fn with_stage_marker<T: Send + Sync + 'static>(&mut self, f: impl FnOnce(&mut World)) {
+        let stage_before = self.stage();
+        let stage = self.get_stage_by_marker::<T>();
+        self.flush();
+        self.set_stage(stage);
+        f(self);
+        self.flush();
+        self.set_stage(stage_before);
+    }
+
+    /// Gets the stage of this world using a [`StageMarker`].
+    pub fn get_stage_by_marker<T: Send + Sync + 'static>(&self) -> Stage {
+        let marker = self.resource::<StageMarker<T>>();
+        marker.stage
     }
 
     /// Reads the current change tick of this world.

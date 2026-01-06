@@ -2023,11 +2023,10 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     ) {
         if let Some(info) = archetype.get_component_info(*component_id) {
             if info.stage < fetch.current_stage {
-                log::error!(
+                panic!(
                     "Cannot modify component {:?} added in stage {:?} from stage {:?}",
                     component_id, info.stage, fetch.current_stage
                 );
-                return;
             }
         }
         if Self::IS_DENSE {
@@ -2046,11 +2045,10 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     ) {
         let column = table.get_column(component_id).debug_checked_unwrap();
         if column.stage() < fetch.current_stage {
-            log::error!(
+            panic!(
                 "Cannot modify component {:?} added in stage {:?} from stage {:?}",
                 component_id, column.stage(), fetch.current_stage
             );
-            return;
         }
         let table_data = Some((
             column.get_data_slice(table.entity_count() as usize).into(),
@@ -2346,7 +2344,6 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         archetype: &'w Archetype,
         table: &'w Table,
     ) {
-        println!("call2");
         fetch.matches = T::matches_component_set(state, &|id| archetype.contains(id));
         if fetch.matches {
             // SAFETY: The invariants are upheld by the caller.

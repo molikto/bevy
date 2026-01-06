@@ -18,7 +18,7 @@ use crate::{
     self as bevy_ecs, bundle::{Bundle, InsertMode, NoBundleEffect}, change_detection::{MaybeLocation, Mut}, component::{Component, ComponentId, Mutable}, entity::{
         Entities, Entity, EntityAllocator, EntityClonerBuilder, EntityNotSpawnedError,
         InvalidEntityError, OptIn, OptOut,
-    }, error::{BevyError, CommandWithEntity, ErrorContext, HandleError, warn}, event::{EntityEvent, Event}, message::Message, observer::Observer, resource::Resource, schedule::ScheduleLabel, stage::{Stage, StageMarker}, system::{
+    }, error::{BevyError, CommandWithEntity, ErrorContext, HandleError, warn}, event::{EntityEvent, Event}, message::Message, observer::Observer, resource::Resource, schedule::ScheduleLabel, stage::StageMarker, system::{
         Deferred, IntoObserverSystem, IntoSystem, ReadOnlySystemParam, RegisteredSystem, SystemId, SystemInput, SystemParam, SystemParamValidationError
     }, world::{
         CommandQueue, EntityWorldMut, FromWorld, World, command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell
@@ -108,10 +108,10 @@ const _: () = {
     );
     #[doc(hidden)]
     pub struct FetchState {
-        state: <__StructFieldsAlias<'static, 'static> as bevy_ecs::system::SystemParam>::State,
+        state: <__StructFieldsAlias<'static, 'static> as SystemParam>::State,
     }
     // SAFETY: Only reads Entities
-    unsafe impl bevy_ecs::system::SystemParam for Commands<'_, '_> {
+    unsafe impl SystemParam for Commands<'_, '_> {
         type State = FetchState;
 
         type Item<'w, 's> = Commands<'w, 's>;
@@ -119,7 +119,7 @@ const _: () = {
         #[track_caller]
         fn init_state(world: &mut World) -> Self::State {
             FetchState {
-                state: <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_state(
+                state: <__StructFieldsAlias<'_, '_> as SystemParam>::init_state(
                     world,
                 ),
             }
@@ -131,7 +131,7 @@ const _: () = {
             component_access_set: &mut bevy_ecs::query::FilteredAccessSet,
             world: &mut World,
         ) {
-            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_access(
+            <__StructFieldsAlias<'_, '_> as SystemParam>::init_access(
                 &state.state,
                 system_meta,
                 component_access_set,
@@ -144,7 +144,7 @@ const _: () = {
             system_meta: &bevy_ecs::system::SystemMeta,
             world: &mut World,
         ) {
-            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::apply(
+            <__StructFieldsAlias<'_, '_> as SystemParam>::apply(
                 &mut state.state,
                 system_meta,
                 world,
@@ -156,7 +156,7 @@ const _: () = {
             system_meta: &bevy_ecs::system::SystemMeta,
             world: bevy_ecs::world::DeferredWorld,
         ) {
-            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::queue(
+            <__StructFieldsAlias<'_, '_> as SystemParam>::queue(
                 &mut state.state,
                 system_meta,
                 world,
@@ -171,7 +171,7 @@ const _: () = {
         ) -> Result<(), SystemParamValidationError> {
             // SAFETY: Upheld by caller
             unsafe {
-                <__StructFieldsAlias as bevy_ecs::system::SystemParam>::validate_param(
+                <__StructFieldsAlias as SystemParam>::validate_param(
                     &mut state.state,
                     system_meta,
                     world,
@@ -189,7 +189,7 @@ const _: () = {
         ) -> Self::Item<'w, 's> {
             // SAFETY: Upheld by caller
             let params = unsafe {
-                <__StructFieldsAlias as bevy_ecs::system::SystemParam>::get_param(
+                <__StructFieldsAlias as SystemParam>::get_param(
                     &mut state.state,
                     system_meta,
                     world,
@@ -204,10 +204,10 @@ const _: () = {
         }
     }
     // SAFETY: Only reads Entities
-    unsafe impl<'w, 's> bevy_ecs::system::ReadOnlySystemParam for Commands<'w, 's>
+    unsafe impl<'w, 's> ReadOnlySystemParam for Commands<'w, 's>
     where
-        Deferred<'s, CommandQueue>: bevy_ecs::system::ReadOnlySystemParam,
-        &'w Entities: bevy_ecs::system::ReadOnlySystemParam,
+        Deferred<'s, CommandQueue>: ReadOnlySystemParam,
+        &'w Entities: ReadOnlySystemParam,
     {
     }
 };
@@ -265,13 +265,23 @@ unsafe impl <M: Send +Sync + 'static, T: SystemParam> SystemParam for AtStage<M,
     }
 
     fn apply(state: &mut Self::State, system_meta: &super::SystemMeta, world: &mut World) {
+        //println!("apply!");
+        world.flush();
+        //println!("apply2");
+        let stage_before = world.stage();
+        //println!("apply3");
         let stage = world.get_resource::<StageMarker<M>>().unwrap().stage;
         world.set_stage(stage);
         T::apply(state, system_meta, world);
+        //println!("apply4");
+        world.flush();
+        //println!("apply5");
+        world.set_stage(stage_before);
     }
 
-    fn queue(state: &mut Self::State, system_meta: &super::SystemMeta, world: crate::world::DeferredWorld) {
-        T::queue(state, system_meta, world);
+    fn queue(_state: &mut Self::State, _system_meta: &super::SystemMeta, _world: crate::world::DeferredWorld) {
+        panic!("Stage controlled commands cannot be queued");
+        //T::queue(state, system_meta, world);
     }
 
     unsafe fn validate_param(

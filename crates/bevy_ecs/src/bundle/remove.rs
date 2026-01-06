@@ -338,11 +338,10 @@ impl BundleInfo {
             for component_id in self.iter_explicit_components() {
                 if let Some(info) = current_archetype.get_component_info(component_id) {
                     if info.stage < current_stage {
-                        log::error!(
+                        panic!(
                             "Cannot remove component {:?} added in stage {:?} from stage {:?}",
                             component_id, info.stage, current_stage
                         );
-                        return (None, false);
                     }
                 }
             }

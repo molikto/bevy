@@ -198,7 +198,7 @@ impl BundleComponentStatus for SpawnBundleStatus {
 /// [`World`]: crate::world::World
 #[derive(Default)]
 pub struct Edges {
-    insert_bundle: SparseArray<BundleId, SparseArray<Stage, ArchetypeAfterBundleInsert>>,
+    insert_bundle: SparseArray<Stage, SparseArray<BundleId, ArchetypeAfterBundleInsert>>,
     remove_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
     take_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
 }
@@ -215,8 +215,14 @@ impl Edges {
             .map(|bundle| bundle.archetype_id)
     }
     
-    pub(crate) fn is_empty(&self) -> bool {
+    /// Checks if there are no cached edges.
+    pub fn is_empty(&self) -> bool {
         self.insert_bundle.is_empty() && self.remove_bundle.is_empty() && self.take_bundle.is_empty()
+    }
+
+    /// Rewrites all cached insert bundle edges from one stage to another.
+    pub(crate) fn rewrite_all_stage(&mut self, from: Stage, to: Stage) {
+        self.insert_bundle.swap(from, to);
     }
 
     /// Internal version of `get_archetype_after_bundle_insert` that
@@ -227,8 +233,8 @@ impl Edges {
         bundle_id: BundleId,
         stage: Stage,
     ) -> Option<&ArchetypeAfterBundleInsert> {
-        self.insert_bundle.get(bundle_id).and_then(|map| {
-            map.get(stage)
+        self.insert_bundle.get(stage).and_then(|map| {
+            map.get(bundle_id)
         })
     }
 
@@ -255,13 +261,13 @@ impl Edges {
             added_len,
             inserted: added.into(),
         };
-        if !self.insert_bundle.contains(bundle_id) {
-            self.insert_bundle.insert(bundle_id, SparseArray::new());
+        if !self.insert_bundle.contains(stage) {
+            self.insert_bundle.insert(stage, SparseArray::new());
         }
         self.insert_bundle
-            .get_mut(bundle_id)
+            .get_mut(stage)
             .unwrap()
-            .insert(stage, info);
+            .insert(bundle_id, info);
     }
 
     /// Checks the cache for the target archetype when removing a bundle from the
@@ -358,7 +364,9 @@ pub(crate) struct ArchetypeSwapRemoveResult {
 ///
 /// [`Component`]: crate::component::Component
 pub struct ArchetypeComponentInfo {
+    /// The storage type for this component within the archetype.
     pub storage_type: StorageType,
+    /// The stage this component belongs to.
     pub stage: Stage,
 }
 
@@ -689,15 +697,13 @@ impl Archetype {
             panic!("Cannot rewrite archetype stages: target stage already exists in archetype");
         }
         if self.components.iter().any(|(_, info)| info.stage == from) {
-            if !self.edges.is_empty() {
-                panic!("Cannot rewrite archetype stages: archetype has edges");
-            }
             for (_, info) in self.components.iter_mut() {
                 if info.stage != from {
                     panic!("Need to rewrite all stages, but found a different stage");
                 }
                 info.stage = to;
             }
+            self.edges.rewrite_all_stage(from, to);
         }
     }
 

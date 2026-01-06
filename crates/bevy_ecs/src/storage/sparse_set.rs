@@ -83,6 +83,19 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
         self.values[index] = Some(value);
     }
 
+    #[inline]
+    pub fn swap(&mut self, index_a: I, index_b: I) {
+        let i_a = index_a.sparse_set_index();
+        let i_b = index_b.sparse_set_index();
+        let has_a = self.contains(index_a);
+        let has_b = self.contains(index_b);
+        if !has_a && !has_b {
+            return;
+        }
+        self.values.resize_with(core::cmp::max(i_a, i_b) + 1, || None);
+        self.values.swap(i_a, i_b);
+    }
+
     /// Is empty
     pub fn is_empty(&self) -> bool {
         self.values.len() == 0 || self.values.iter().all(Option::is_none)

@@ -370,6 +370,7 @@ impl World {
         I: SystemInput + 'static,
         O: 'static,
     {
+        let stage = self.stage();
         // Lookup
         let mut entity = self
             .get_entity_mut(id.entity)
@@ -415,8 +416,16 @@ impl World {
         // Wait to run the commands until the system is available again.
         // This is needed so the systems can recursively run themselves.
         let result = system.run_without_applying_deferred(input, self);
-        system.queue_deferred(self.into());
+        system.apply_deferred(self.into());
+        // FIXME recursive query disabled!!!
+        self.flush();
 
+        let current_stage = self.stage();
+        debug_assert_eq!(
+            stage, current_stage,
+            "System changed the world's stage from {:?} to {:?} without restoring it",
+            stage, current_stage
+        );
         // Return ownership of system trait object (if entity still exists)
         if let Ok(mut entity) = self.get_entity_mut(id.entity)
             && let Some(mut registered_system) = entity.get_mut::<RegisteredSystem<I, O>>()
