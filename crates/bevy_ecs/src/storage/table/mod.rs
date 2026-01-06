@@ -202,6 +202,14 @@ impl Table {
         self.entities.capacity()
     }
 
+    pub(crate) fn rewrite_stage(&mut self, from: Stage, to: Stage) {
+        for column in self.columns.values_mut() {
+            if column.stage == from {
+                column.stage = to;
+            }
+        }
+    }
+
     /// Removes the entity at the given row and returns the entity swapped in to replace it (if an
     /// entity was swapped in)
     ///
@@ -818,6 +826,12 @@ impl Tables {
     pub fn iter(&self) -> core::slice::Iter<'_, Table> {
         self.tables.iter()
     }
+
+    /// Iterates through all of the tables stored within in [`TableId`] order.
+    pub fn iter_mut(&mut self) -> core::slice::IterMut<'_, Table> {
+        self.tables.iter_mut()
+    }
+
 
     /// Clears all data from all [`Table`]s stored within.
     pub(crate) fn clear(&mut self) {

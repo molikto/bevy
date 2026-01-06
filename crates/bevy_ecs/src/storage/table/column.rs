@@ -28,10 +28,11 @@ pub struct Column {
     pub(super) added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_by: MaybeLocation<ThinArrayPtr<UnsafeCell<&'static Location<'static>>>>,
-    pub(super) stage: Stage,
+    pub(crate) stage: Stage,
 }
 
 impl Column {
+
     /// Create a new [`Column`] with the given `capacity`.
     pub fn with_capacity(component_info: &ComponentInfo, capacity: usize, stage: Stage) -> Self {
         Self {

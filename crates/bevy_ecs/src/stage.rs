@@ -511,4 +511,35 @@ mod tests {
         schedule_count_a_at_1.add_systems(count_a_at_1);
         schedule_count_a_at_1.run(&mut world);
     }
+
+    #[test]
+    fn move_to_stage() {
+        let mut world = World::new();
+        let entity = world.spawn(A).id();
+        // changes all data from stage 0 to stage 2
+        // it rewrites the archetypes and component storages
+        // the new stage must be empty, otherwise we cannot merge safely
+        world.rewrite_all_stage(Stage::new(0), Stage::new(2));
+        fn check_at_stage_1(
+            query: Query<&A>,
+            stage: Stage,
+        ) {
+            assert_eq!(query.iter().count(), 0, "at stage {:?}", stage);
+        }
+        world.set_stage(Stage::new(1));
+        let mut schedule_check_at_stage_1 = Schedule::default();
+        schedule_check_at_stage_1.add_systems(check_at_stage_1);
+        schedule_check_at_stage_1.run(&mut world);
+
+        fn check_at_stage_2(
+            query: Query<&A>,
+            stage: Stage,
+        ) {
+            assert_eq!(query.iter().count(), 1, "at stage {:?}", stage);
+        }
+        world.set_stage(Stage::new(2));
+        let mut schedule_check_at_stage_2 = Schedule::default();
+        schedule_check_at_stage_2.add_systems(check_at_stage_2);
+        schedule_check_at_stage_2.run(&mut world);
+    }
 }

@@ -1460,6 +1460,18 @@ impl World {
         }
     }
 
+    pub fn rewrite_all_stage(&mut self, from: Stage, to: Stage) {
+        for archetype in &mut self.archetypes.archetypes {
+             archetype.rewrite_all_stage(from, to);
+        }
+        for table in self.storages.tables.iter_mut() {
+             table.rewrite_stage(from, to);
+        }
+        for sparse_set in self.storages.sparse_sets.values_mut() {
+             sparse_set.rewrite_stage(from, to);
+        }
+    }
+
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
     /// [`Components`](Component).
     ///

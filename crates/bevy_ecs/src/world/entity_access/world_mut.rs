@@ -106,6 +106,7 @@ impl<'w> EntityWorldMut<'w> {
         )
     }
 
+
     /// # Safety
     ///
     ///  - `entity` must be valid for `world`: the generation should match that of the entity at the same index.

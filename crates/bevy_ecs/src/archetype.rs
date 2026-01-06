@@ -214,6 +214,10 @@ impl Edges {
         self.get_archetype_after_bundle_insert_internal(bundle_id, stage)
             .map(|bundle| bundle.archetype_id)
     }
+    
+    pub(crate) fn is_empty(&self) -> bool {
+        self.insert_bundle.is_empty() && self.remove_bundle.is_empty() && self.take_bundle.is_empty()
+    }
 
     /// Internal version of `get_archetype_after_bundle_insert` that
     /// fetches the full `ArchetypeAfterBundleInsert`.
@@ -677,6 +681,23 @@ impl Archetype {
             info.stage < stage
         } else {
             false
+        }
+    }
+
+    pub(crate) fn rewrite_all_stage(&mut self, from: Stage, to: Stage)  {
+        if self.components.iter().any(|(_, info)| info.stage == to) {
+            panic!("Cannot rewrite archetype stages: target stage already exists in archetype");
+        }
+        if self.components.iter().any(|(_, info)| info.stage == from) {
+            if !self.edges.is_empty() {
+                panic!("Cannot rewrite archetype stages: archetype has edges");
+            }
+            for (_, info) in self.components.iter_mut() {
+                if info.stage != from {
+                    panic!("Need to rewrite all stages, but found a different stage");
+                }
+                info.stage = to;
+            }
         }
     }
 

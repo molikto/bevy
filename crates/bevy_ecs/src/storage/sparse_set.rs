@@ -83,6 +83,11 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
         self.values[index] = Some(value);
     }
 
+    /// Is empty
+    pub fn is_empty(&self) -> bool {
+        self.values.len() == 0 || self.values.iter().all(Option::is_none)
+    }
+
     /// Returns a mutable reference to the value at `index`.
     ///
     /// Returns `None` if `index` does not have a value or if `index` is out of bounds.
@@ -293,6 +298,12 @@ impl ComponentSparseSet {
         assert_eq!(entity, self.entities[dense_index.index()]);
         // SAFETY: if the sparse index points to something in the dense vec, it exists
         unsafe { Some(self.dense.get_changed_tick_unchecked(dense_index)) }
+    }
+
+    pub(crate) fn rewrite_stage(&mut self, from: Stage, to: Stage) {
+        if self.dense.stage == from {
+            self.dense.stage = to;
+        }
     }
 
     /// Returns a reference to the "added" and "changed" ticks of the entity's component value.
@@ -758,6 +769,10 @@ impl SparseSets {
         for set in self.sets.values_mut() {
             set.check_change_ticks(check);
         }
+    }
+
+    pub(crate) fn values_mut(&mut self) -> impl Iterator<Item = &mut ComponentSparseSet> {
+        self.sets.values_mut()
     }
 }
 
