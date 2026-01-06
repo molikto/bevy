@@ -124,7 +124,7 @@ impl ComponentId {
 #[cfg(test)]
 mod tests {
 
-    use crate::{query::With, stage::Stage};
+    use crate::{query::With, stage::{Stage, StageMarker}, system::AtStage};
 
     use super::super::prelude::*;
     use std::*;
@@ -471,5 +471,44 @@ mod tests {
         let mut schedule_check_no_removal_detection = Schedule::default();
         schedule_check_no_removal_detection.add_systems(check_no_removal_detection);
         schedule_check_no_removal_detection.run(&mut world);
+    }
+
+    #[test]
+    fn test_staged_commands() {
+        let mut world = World::new();
+        struct M;
+        world.insert_resource(StageMarker::<M>::new(Stage::new(1)));
+        fn insert_a_at_stage_m(
+            mut commands: AtStage<M, Commands>,
+            query: Query<Entity, With<A>>,
+            stage: Stage,
+        ) {
+            commands.spawn(A);
+        }
+        let mut schedule_insert_a_at_stage_m = Schedule::default();
+        schedule_insert_a_at_stage_m.add_systems(insert_a_at_stage_m);
+        schedule_insert_a_at_stage_m.run(&mut world);
+
+        fn count_a_at_0(
+            query: Query<&A>,
+            stage: Stage,
+        ) {
+            assert_eq!(query.iter().count(), 0, "at stage {:?}", stage);
+        }
+        world.set_stage(Stage::new(0));
+        let mut schedule_count_a_at_0 = Schedule::default();
+        schedule_count_a_at_0.add_systems(count_a_at_0);
+        schedule_count_a_at_0.run(&mut world);
+
+        fn count_a_at_1(
+            query: Query<&A>,
+            stage: Stage,
+        ) {
+            assert_eq!(query.iter().count(), 1, "at stage {:?}", stage);
+        }
+        world.set_stage(Stage::new(1));
+        let mut schedule_count_a_at_1 = Schedule::default();
+        schedule_count_a_at_1.add_systems(count_a_at_1);
+        schedule_count_a_at_1.run(&mut world);
     }
 }

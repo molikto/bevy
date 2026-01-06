@@ -214,19 +214,19 @@ const _: () = {
 
 
 /// A [`SystemParam`] that provides access to another [`SystemParam`] at a specific stage.
-pub struct AtStage <M: Send +Sync + 'static, T: SystemParam> {
+pub struct AtStage <M: Send +Sync + 'static, T> {
     commands: T,
     _marker: PhantomData<M>,
 }
 
-impl <M: Send +Sync + 'static, T: SystemParam> core::ops::Deref for AtStage<M, T> {
+impl <M: Send +Sync + 'static, T> core::ops::Deref for AtStage<M, T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         &self.commands
     }
 }
 
-impl <M: Send +Sync + 'static, T: SystemParam> core::ops::DerefMut for AtStage<M, T> {
+impl <M: Send +Sync + 'static, T> core::ops::DerefMut for AtStage<M, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.commands
     }
@@ -235,7 +235,7 @@ impl <M: Send +Sync + 'static, T: SystemParam> core::ops::DerefMut for AtStage<M
 unsafe impl <M: Send +Sync + 'static, T: SystemParam> SystemParam for AtStage<M, T> {
     type State = T::State;
 
-    type Item<'world, 'state> = T::Item<'world, 'state>;
+    type Item<'world, 'state> = AtStage<M, T::Item<'world, 'state>>;
 
     fn init_state(world: &mut World) -> Self::State {
         T::init_state(world)
@@ -256,8 +256,11 @@ unsafe impl <M: Send +Sync + 'static, T: SystemParam> SystemParam for AtStage<M,
         world: UnsafeWorldCell<'world>,
         change_tick: crate::change_detection::Tick,
     ) -> Self::Item<'world, 'state> {
-        unsafe {
-            T::get_param(state, system_meta, world, change_tick)
+        AtStage {
+            commands: unsafe {
+                T::get_param(state, system_meta, world, change_tick)
+            },
+            _marker: PhantomData,
         }
     }
 
