@@ -54,7 +54,8 @@ impl<'w> BundleInserter<'w> {
             &world.components,
             &world.observers,
             archetype_id,
-            stage
+            stage,
+            change_tick,
         );
 
         let inserter = if new_archetype_id == archetype_id {
@@ -143,6 +144,7 @@ impl<'w> BundleInserter<'w> {
         archetype_after_insert: &ArchetypeAfterBundleInsert,
         world: &'a UnsafeWorldCell<'w>,
         archetype_move_type: &'a mut ArchetypeMoveType,
+        change_tick: Tick,
     ) -> (
         &'a Archetype,
         EntityLocation,
@@ -210,7 +212,7 @@ impl<'w> BundleInserter<'w> {
                     (&mut world.storages.sparse_sets, &mut world.entities)
                 };
 
-                let result = archetype.swap_remove(location.archetype_row);
+                let result = archetype.swap_remove(location.archetype_row, change_tick);
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
@@ -225,7 +227,7 @@ impl<'w> BundleInserter<'w> {
                         }),
                     );
                 }
-                let new_location = new_archetype.allocate(entity, result.table_row);
+                let new_location = new_archetype.allocate(entity, result.table_row, change_tick);
                 entities.update_existing_location(entity.index(), Some(new_location));
 
                 (
@@ -253,7 +255,7 @@ impl<'w> BundleInserter<'w> {
                         &mut world.entities,
                     )
                 };
-                let result = archetype.swap_remove(location.archetype_row);
+                let result = archetype.swap_remove(location.archetype_row, change_tick);
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
@@ -271,7 +273,7 @@ impl<'w> BundleInserter<'w> {
                 // PERF: store "non bundle" components in edge, then just move those to avoid
                 // redundant copies
                 let move_result = table.move_to_superset_unchecked(result.table_row, new_table);
-                let new_location = new_archetype.allocate(entity, move_result.new_row);
+                let new_location = new_archetype.allocate(entity, move_result.new_row, change_tick);
                 entities.update_existing_location(entity.index(), Some(new_location));
 
                 // If an entity was moved into this entity's table spot, update its table row.
@@ -349,6 +351,7 @@ impl<'w> BundleInserter<'w> {
                 archetype_after_insert,
                 &self.world,
                 &mut self.archetype_move_type,
+                self.change_tick,
             );
 
             self.bundle_info.as_ref().write_components(
@@ -489,6 +492,7 @@ impl BundleInfo {
         observers: &Observers,
         archetype_id: ArchetypeId,
         stage: Stage,
+        change_tick: Tick,
     ) -> (ArchetypeId, bool) {
         if let Some(archetype_after_insert_id) = archetypes[archetype_id]
             .edges()
@@ -590,6 +594,7 @@ impl BundleInfo {
                     table_id,
                     table_components,
                     sparse_set_components,
+                    change_tick,
                 )
             };
 

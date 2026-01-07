@@ -162,7 +162,7 @@ mod tests {
         let start_stage = Stage::new(1);
         world.set_stage(start_stage);
         let parent = world.spawn(A).id();
-        let child = world.spawn((A, B, ChildOf(parent))).id();
+        let _child = world.spawn((A, B, ChildOf(parent))).id();
         let _new_parent = world.spawn(B).id();
 
         fn move_children(

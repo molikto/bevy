@@ -5,7 +5,7 @@ use core::ptr::NonNull;
 use crate::{
     archetype::{Archetype, ArchetypeComponentInfo, ArchetypeCreated, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleId, BundleInfo},
-    change_detection::MaybeLocation,
+    change_detection::{MaybeLocation, Tick},
     component::{ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
     event::EntityComponentsTrigger,
@@ -25,6 +25,7 @@ pub(crate) struct BundleRemover<'w> {
     old_archetype: NonNull<Archetype>,
     new_archetype: NonNull<Archetype>,
     pub(crate) relationship_hook_mode: RelationshipHookMode,
+    change_tick: Tick,
 }
 
 impl<'w> BundleRemover<'w> {
@@ -40,11 +41,12 @@ impl<'w> BundleRemover<'w> {
         world: &'w mut World,
         archetype_id: ArchetypeId,
         require_all: bool,
+        change_tick: Tick,
     ) -> Option<Self> {
         let bundle_id = world.register_bundle_info::<T>();
 
         // SAFETY: we initialized this bundle_id in `init_info`, and caller ensures archetype is valid.
-        unsafe { Self::new_with_id(world, archetype_id, bundle_id, require_all) }
+        unsafe { Self::new_with_id(world, archetype_id, bundle_id, require_all, change_tick) }
     }
 
     /// Creates a new [`BundleRemover`], if such a remover would do anything.
@@ -59,6 +61,7 @@ impl<'w> BundleRemover<'w> {
         archetype_id: ArchetypeId,
         bundle_id: BundleId,
         require_all: bool,
+        change_tick: Tick,
     ) -> Option<Self> {
         let bundle_info = world.bundles.get_unchecked(bundle_id);
         let current_stage = world.stage();
@@ -72,6 +75,7 @@ impl<'w> BundleRemover<'w> {
                 archetype_id,
                 !require_all,
                 current_stage,
+                change_tick,
             )
         };
         let new_archetype_id = new_archetype_id?;
@@ -100,6 +104,7 @@ impl<'w> BundleRemover<'w> {
             old_and_new_table: tables,
             world: world.as_unsafe_world_cell(),
             relationship_hook_mode: RelationshipHookMode::Run,
+            change_tick,
         };
         if is_new_created {
             remover
@@ -229,7 +234,7 @@ impl<'w> BundleRemover<'w> {
         let remove_result = self
             .old_archetype
             .as_mut()
-            .swap_remove(location.archetype_row);
+            .swap_remove(location.archetype_row, self.change_tick);
         // if an entity was moved into this entity's archetype row, update its archetype row
         if let Some(swapped_entity) = remove_result.swapped_entity {
             let swapped_location = world.entities.get_spawned(swapped_entity).unwrap();
@@ -268,7 +273,7 @@ impl<'w> BundleRemover<'w> {
             let new_location = unsafe {
                 self.new_archetype
                     .as_mut()
-                    .allocate(entity, move_result.new_row)
+                    .allocate(entity, move_result.new_row, self.change_tick)
             };
 
             // if an entity was moved into this entity's table row, update its table row
@@ -293,7 +298,7 @@ impl<'w> BundleRemover<'w> {
             // The tables are the same
             self.new_archetype
                 .as_mut()
-                .allocate(entity, location.table_row)
+                .allocate(entity, location.table_row, self.change_tick)
         };
 
         // SAFETY: The entity is valid and has been moved to the new location already.
@@ -332,6 +337,7 @@ impl BundleInfo {
         archetype_id: ArchetypeId,
         intersection: bool,
         current_stage: Stage,
+        change_tick: Tick,
     ) -> (Option<ArchetypeId>, bool) {
         {
             let current_archetype = &archetypes[archetype_id];
@@ -418,6 +424,7 @@ impl BundleInfo {
                 next_table_id,
                 next_table_components,
                 next_sparse_set_components,
+                change_tick,
             );
             (Some(new_archetype_id), is_new_created)
         };

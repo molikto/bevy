@@ -51,6 +51,7 @@ impl<'w> BundleSpawner<'w> {
             &world.observers,
             ArchetypeId::EMPTY,
             stage,
+            change_tick,
         );
 
         let archetype = &mut world.archetypes[new_archetype_id];
@@ -108,7 +109,7 @@ impl<'w> BundleSpawner<'w> {
                 (&mut world.storages.sparse_sets, &mut world.entities)
             };
             let table_row = table.allocate(entity);
-            let location = archetype.allocate(entity, table_row);
+            let location = archetype.allocate(entity, table_row, self.change_tick);
             bundle_info.write_components(
                 table,
                 sparse_sets,

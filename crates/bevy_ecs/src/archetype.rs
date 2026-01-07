@@ -20,7 +20,7 @@
 //! [`World::archetypes`]: crate::world::World::archetypes
 
 use crate::{
-    bundle::BundleId, component::{ComponentId, Components, RequiredComponentConstructor, StorageType}, entity::{Entity, EntityLocation}, event::Event, observer::Observers, query::DebugCheckedUnwrap, stage::{Stage, StageComponentId}, storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow}
+    bundle::BundleId, change_detection::{CheckChangeTicks, Tick}, component::{ComponentId, Components, RequiredComponentConstructor, StorageType}, entity::{Entity, EntityLocation}, event::Event, observer::Observers, query::DebugCheckedUnwrap, stage::{Stage, StageComponentId}, storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow}
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
@@ -400,6 +400,7 @@ pub struct Archetype {
     table_id: TableId,
     edges: Edges,
     entities: Vec<ArchetypeEntity>,
+    entities_changed_tick: Tick,
     components: ImmutableSparseSet<ComponentId, ArchetypeComponentInfo>,
     pub(crate) flags: ArchetypeFlags,
 }
@@ -414,6 +415,7 @@ impl Archetype {
         table_id: TableId,
         table_components: impl Iterator<Item = StageComponentId>,
         sparse_set_components: impl Iterator<Item = StageComponentId>,
+        change_tick: Tick,
     ) -> Self {
         let (min_table, _) = table_components.size_hint();
         let (min_sparse, _) = sparse_set_components.size_hint();
@@ -461,10 +463,15 @@ impl Archetype {
             id,
             table_id,
             entities: Vec::new(),
+            entities_changed_tick: change_tick,
             components: archetype_components.into_immutable(),
             edges: Default::default(),
             flags,
         }
+    }
+
+    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
+        self.entities_changed_tick.check_tick(check);
     }
 
     /// Fetches the ID for the archetype.
@@ -491,6 +498,14 @@ impl Archetype {
     #[inline]
     pub fn entities(&self) -> &[ArchetypeEntity] {
         &self.entities
+    }
+
+    /// Gets the tick when the entities array was last changed.
+    ///
+    /// This tracks when entities were added or removed from this archetype.
+    #[inline]
+    pub fn entities_changed_tick(&self) -> Tick {
+        self.entities_changed_tick
     }
 
     /// Fetches the entities contained in this archetype.
@@ -625,10 +640,12 @@ impl Archetype {
         &mut self,
         entity: Entity,
         table_row: TableRow,
+        change_tick: Tick,
     ) -> EntityLocation {
         // SAFETY: An entity can not have multiple archetype rows and there can not be more than u32::MAX entities.
         let archetype_row = unsafe { ArchetypeRow::new(NonMaxU32::new_unchecked(self.len())) };
         self.entities.push(ArchetypeEntity { entity, table_row });
+        self.entities_changed_tick = change_tick;
 
         EntityLocation {
             archetype_id: self.id,
@@ -649,9 +666,10 @@ impl Archetype {
     /// # Panics
     /// This function will panic if `row >= self.entities.len()`
     #[inline]
-    pub(crate) fn swap_remove(&mut self, row: ArchetypeRow) -> ArchetypeSwapRemoveResult {
+    pub(crate) fn swap_remove(&mut self, row: ArchetypeRow, change_tick: Tick) -> ArchetypeSwapRemoveResult {
         let is_last = row.index() == self.entities.len() - 1;
         let entity = self.entities.swap_remove(row.index());
+        self.entities_changed_tick = change_tick;
         ArchetypeSwapRemoveResult {
             swapped_entity: if is_last {
                 None
@@ -873,9 +891,16 @@ impl Archetypes {
                 TableId::empty(),
                 Vec::new(),
                 Vec::new(),
+                Tick::new(0),
             );
         }
         archetypes
+    }
+
+    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
+        for archetype in &mut self.archetypes {
+            archetype.check_change_ticks(check);
+        }
     }
 
     /// Returns the "generation", a handle to the current highest archetype ID.
@@ -966,6 +991,7 @@ impl Archetypes {
         table_id: TableId,
         table_components: Vec<StageComponentId>,
         sparse_set_components: Vec<StageComponentId>,
+        change_tick: Tick,
     ) -> (ArchetypeId, bool) {
         let archetype_identity = ArchetypeComponents {
             sparse_set_components: sparse_set_components.into_boxed_slice(),
@@ -990,6 +1016,7 @@ impl Archetypes {
                     table_id,
                     table_components.iter().copied(),
                     sparse_set_components.iter().copied(),
+                    change_tick,
                 ));
                 vacant.insert(id);
                 (id, true)

@@ -44,7 +44,7 @@ use crate::{
         Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo, Components,
         ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable, RequiredComponents,
         RequiredComponentsError,
-    }, entity::{Entities, Entity, EntityAllocator, EntityNotSpawnedError, SpawnError}, entity_disabling::DefaultQueryFilters, error::{DefaultErrorHandler, ErrorHandler}, lifecycle::{ADD, ComponentHooks, DESPAWN, INSERT, REMOVE, REPLACE, RemovedComponentMessages}, message::{Message, MessageId, Messages, WriteBatchIds}, observer::Observers, prelude::{Add, Despawn, Insert, Remove, Replace}, query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState}, relationship::RelationshipHookMode, resource::Resource, schedule::{Schedule, ScheduleLabel, Schedules}, stage::{self, Stage, StageMarker}, storage::{ResourceData, Storages}, system::Commands, world::{
+    }, entity::{Entities, Entity, EntityAllocator, EntityNotSpawnedError, SpawnError}, entity_disabling::DefaultQueryFilters, error::{DefaultErrorHandler, ErrorHandler}, lifecycle::{ADD, ComponentHooks, DESPAWN, INSERT, REMOVE, REPLACE, RemovedComponentMessages}, message::{Message, MessageId, Messages, WriteBatchIds}, observer::Observers, prelude::{Add, Despawn, Insert, Remove, Replace}, query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState}, relationship::RelationshipHookMode, resource::Resource, schedule::{Schedule, ScheduleLabel, Schedules}, stage::{Stage, StageMarker}, storage::{ResourceData, Storages}, system::Commands, world::{
         command_queue::RawCommandQueue,
         error::{
             EntityDespawnError, EntityMutableFetchError, TryInsertBatchError, TryRunScheduleError,
@@ -1129,13 +1129,13 @@ impl World {
     ) -> EntityWorldMut<'_> {
         // SAFETY: Locations are immediately made valid
         unsafe {
+            let change_tick = self.change_tick();
             let archetype = self.archetypes.empty_mut();
             // PERF: consider avoiding allocating entities in the empty archetype unless needed
             let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
             // SAFETY: no components are allocated by archetype.allocate() because the archetype is
             // empty
-            let location = archetype.allocate(entity, table_row);
-            let change_tick = self.change_tick();
+            let location = archetype.allocate(entity, table_row, change_tick);
             let was_at = self.entities.set_location(entity.index(), Some(location));
             assert!(
                 was_at.is_none(),
@@ -3198,6 +3198,7 @@ impl World {
 
         let check = CheckChangeTicks(change_tick);
 
+        self.archetypes.check_change_ticks(check);
         let Storages {
             ref mut tables,
             ref mut sparse_sets,

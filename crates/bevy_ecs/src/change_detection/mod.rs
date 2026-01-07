@@ -53,6 +53,9 @@ mod tests {
     #[derive(Resource, PartialEq)]
     struct R2(u8);
 
+    #[derive(Component)]
+    struct TestComponent;
+
     impl Deref for R2 {
         type Target = u8;
         fn deref(&self) -> &u8 {
@@ -382,4 +385,65 @@ mod tests {
         assert_eq!(3, into_mut.ticks.last_run.get());
         assert_eq!(4, into_mut.ticks.this_run.get());
     }
+
+
+    #[test]
+    fn archetype_entities_changed_tick() {
+        let mut world = World::new();
+        
+        // Spawn an entity to create an archetype
+        let entity1 = world.spawn(C).id();
+        let initial_tick = world.change_tick();
+        
+        // Get the archetype and verify entities_changed_tick is set
+        let location = world.entity(entity1).location();
+        let archetype = &world.archetypes[location.archetype_id];
+        assert_eq!(archetype.entities_changed_tick(), initial_tick);
+        
+        // Increment world tick
+        world.increment_change_tick();
+        let second_tick = world.change_tick();
+        
+        // Spawn another entity in the same archetype
+        let entity2 = world.spawn(C).id();
+        
+        // Verify entities_changed_tick was updated
+        let archetype = &world.archetypes[location.archetype_id];
+        assert_eq!(archetype.entities_changed_tick(), second_tick);
+        
+        // Increment world tick
+        world.increment_change_tick();
+        let third_tick = world.change_tick();
+        
+        // Despawn an entity
+        world.despawn(entity1);
+        
+        // Verify entities_changed_tick was updated again
+        let archetype = &world.archetypes[location.archetype_id];
+        assert_eq!(archetype.entities_changed_tick(), third_tick);
+        
+        // Test archetype change via component addition
+        world.increment_change_tick();
+        let fourth_tick = world.change_tick();
+        
+        // Add a component to entity2, which should move it to a new archetype
+        // This operation both removes entity2 from old archetype and adds it to new archetype
+        world.entity_mut(entity2).insert(TestComponent);
+        
+        // The old archetype should have been updated when entity2 was removed from it
+        let old_archetype = &world.archetypes[location.archetype_id];
+        assert_eq!(old_archetype.entities_changed_tick(), fourth_tick);
+        
+        // Find the new archetype for entity2
+        let new_location = world.entity(entity2).location();
+        let new_archetype = &world.archetypes[new_location.archetype_id];
+        
+        // New archetype should have been updated with fourth_tick when entity2 was added
+        assert_eq!(new_archetype.entities_changed_tick(), fourth_tick);
+        
+        // Test that the different archetypes have different IDs
+        assert_ne!(location.archetype_id, new_location.archetype_id);
+    }
+
+    
 }
