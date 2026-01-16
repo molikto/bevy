@@ -1,5 +1,15 @@
 use crate::{
-    archetype::{Archetype, ArchetypeGeneration, ArchetypeId}, change_detection::Tick, component::ComponentId, entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray}, entity_disabling::DefaultQueryFilters, prelude::FromWorld, query::{FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery}, stage::Stage, storage::{SparseSetIndex, TableId}, system::Query, world::{World, WorldId, unsafe_world_cell::UnsafeWorldCell}
+    archetype::{Archetype, ArchetypeGeneration, ArchetypeId},
+    change_detection::Tick,
+    component::ComponentId,
+    entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
+    entity_disabling::DefaultQueryFilters,
+    prelude::FromWorld,
+    query::{FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery},
+    stage::Stage,
+    storage::{SparseSetIndex, TableId},
+    system::Query,
+    world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
@@ -8,9 +18,9 @@ use crate::entity::UniqueEntityEquivalentSlice;
 use alloc::vec::Vec;
 use bevy_utils::prelude::DebugName;
 use core::{fmt, ptr};
-use std::println;
 use fixedbitset::FixedBitSet;
 use log::warn;
+use std::println;
 #[cfg(feature = "trace")]
 use tracing::Span;
 
@@ -577,9 +587,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// `archetype` must be from the `World` this state was initialized from.
     pub unsafe fn new_archetype(&mut self, archetype: &Archetype, stage: Stage) {
         //println!("Checking archetype {:?}", archetype.id());
-        if D::matches_component_set(&self.fetch_state, &|id| archetype.contains_with_stage_leq(id, stage))
-            && F::matches_component_set(&self.filter_state, &|id| archetype.contains_with_stage_leq(id, stage))
-            && self.matches_component_set(&|id| archetype.contains_with_stage_leq(id, stage))
+        if D::matches_component_set(&self.fetch_state, &|id| {
+            archetype.contains_with_stage_leq(id, stage)
+        }) && F::matches_component_set(&self.filter_state, &|id| {
+            archetype.contains_with_stage_leq(id, stage)
+        }) && self.matches_component_set(&|id| archetype.contains_with_stage_leq(id, stage))
         {
             //println!("Matched archetype {:?}", archetype.id());
             let archetype_index = archetype.id().index();

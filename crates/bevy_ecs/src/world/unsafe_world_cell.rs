@@ -2,15 +2,30 @@
 
 use super::{Mut, Ref, World, WorldId};
 use crate::{
-    archetype::{Archetype, Archetypes}, bundle::Bundles, change_detection::{
+    archetype::{Archetype, Archetypes},
+    bundle::Bundles,
+    change_detection::{
         ComponentTickCells, ComponentTicks, ComponentTicksMut, ComponentTicksRef, MaybeLocation,
         MutUntyped, Tick,
-    }, component::{ComponentId, Components, Mutable, StorageType}, entity::{
+    },
+    component::{ComponentId, Components, Mutable, StorageType},
+    entity::{
         ContainsEntity, Entities, Entity, EntityAllocator, EntityLocation, EntityNotSpawnedError,
-    }, error::{DefaultErrorHandler, ErrorHandler}, lifecycle::RemovedComponentMessages, observer::Observers, prelude::Component, query::{DebugCheckedUnwrap, QueryAccessError, ReleaseStateQueryData}, resource::Resource, stage::Stage, storage::{ComponentSparseSet, Storages, Table}, world::RawCommandQueue
+    },
+    error::{DefaultErrorHandler, ErrorHandler},
+    lifecycle::RemovedComponentMessages,
+    observer::Observers,
+    prelude::Component,
+    query::{DebugCheckedUnwrap, QueryAccessError, ReleaseStateQueryData},
+    resource::Resource,
+    stage::Stage,
+    storage::{ComponentSparseSet, Storages, Table},
+    world::RawCommandQueue,
 };
 use bevy_ptr::Ptr;
-use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr, sync::atomic::Ordering};
+use core::{
+    any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr, sync::atomic::Ordering,
+};
 use thiserror::Error;
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid

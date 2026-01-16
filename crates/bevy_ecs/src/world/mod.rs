@@ -35,21 +35,39 @@ pub use identifier::WorldId;
 pub use spawn_batch::*;
 
 use crate::{
-    archetype::{ArchetypeId, Archetypes}, bundle::{
+    archetype::{ArchetypeId, Archetypes},
+    bundle::{
         Bundle, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
         NoBundleEffect,
-    }, change_detection::{
+    },
+    change_detection::{
         CheckChangeTicks, ComponentTicks, ComponentTicksMut, MaybeLocation, MutUntyped, Tick,
-    }, component::{
+    },
+    component::{
         Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo, Components,
         ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable, RequiredComponents,
         RequiredComponentsError,
-    }, entity::{Entities, Entity, EntityAllocator, EntityNotSpawnedError, SpawnError}, entity_disabling::DefaultQueryFilters, error::{DefaultErrorHandler, ErrorHandler}, lifecycle::{ADD, ComponentHooks, DESPAWN, INSERT, REMOVE, REPLACE, RemovedComponentMessages}, message::{Message, MessageId, Messages, WriteBatchIds}, observer::Observers, prelude::{Add, Despawn, Insert, Remove, Replace}, query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState}, relationship::RelationshipHookMode, resource::Resource, schedule::{Schedule, ScheduleLabel, Schedules}, stage::{Stage, StageMarker}, storage::{ResourceData, Storages}, system::Commands, world::{
+    },
+    entity::{Entities, Entity, EntityAllocator, EntityNotSpawnedError, SpawnError},
+    entity_disabling::DefaultQueryFilters,
+    error::{DefaultErrorHandler, ErrorHandler},
+    lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
+    message::{Message, MessageId, Messages, WriteBatchIds},
+    observer::Observers,
+    prelude::{Add, Despawn, Insert, Remove, Replace},
+    query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
+    relationship::RelationshipHookMode,
+    resource::Resource,
+    schedule::{Schedule, ScheduleLabel, Schedules},
+    stage::{Stage, StageMarker},
+    storage::{ResourceData, Storages},
+    system::Commands,
+    world::{
         command_queue::RawCommandQueue,
         error::{
             EntityDespawnError, EntityMutableFetchError, TryInsertBatchError, TryRunScheduleError,
         },
-    }
+    },
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
@@ -1463,13 +1481,13 @@ impl World {
     /// Rewrites all component storage stages from `from` to `to`.
     pub fn rewrite_all_stage(&mut self, from: Stage, to: Stage) {
         for archetype in &mut self.archetypes.archetypes {
-             archetype.rewrite_all_stage(from, to);
+            archetype.rewrite_all_stage(from, to);
         }
         for table in self.storages.tables.iter_mut() {
-             table.rewrite_stage(from, to);
+            table.rewrite_stage(from, to);
         }
         for sparse_set in self.storages.sparse_sets.values_mut() {
-             sparse_set.rewrite_stage(from, to);
+            sparse_set.rewrite_stage(from, to);
         }
     }
 

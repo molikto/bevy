@@ -375,11 +375,15 @@ impl BundleInfo {
                 let mut removed_table_components = Vec::new();
                 let mut removed_sparse_set_components = Vec::new();
                 for component_id in self.iter_explicit_components() {
-                    if let Some(&ArchetypeComponentInfo { stage, .. }) = current_archetype.get_component_info(component_id) {
+                    if let Some(&ArchetypeComponentInfo { stage, .. }) =
+                        current_archetype.get_component_info(component_id)
+                    {
                         // SAFETY: bundle components were already initialized by bundles.get_info
                         let component_info = unsafe { components.get_info_unchecked(component_id) };
                         match component_info.storage_type() {
-                            StorageType::Table => removed_table_components.push(component_id.at_stage(stage)),
+                            StorageType::Table => {
+                                removed_table_components.push(component_id.at_stage(stage))
+                            }
                             StorageType::SparseSet => {
                                 removed_sparse_set_components.push(component_id.at_stage(stage));
                             }

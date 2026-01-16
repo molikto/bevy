@@ -3,6 +3,7 @@ use core::any::TypeId;
 use crate::reflect_utils::clone_reflect_value;
 use crate::{DynamicEntity, DynamicScene, SceneFilter};
 use alloc::collections::BTreeMap;
+use bevy_ecs::stage::Stage;
 use bevy_ecs::{
     component::{Component, ComponentId},
     entity::{Entity, EntityHashMap, EntityMapper},
@@ -11,7 +12,6 @@ use bevy_ecs::{
     resource::Resource,
     world::World,
 };
-use bevy_ecs::stage::Stage;
 use bevy_reflect::PartialReflect;
 use bevy_utils::default;
 

@@ -92,7 +92,8 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
         if !has_a && !has_b {
             return;
         }
-        self.values.resize_with(core::cmp::max(i_a, i_b) + 1, || None);
+        self.values
+            .resize_with(core::cmp::max(i_a, i_b) + 1, || None);
         self.values.swap(i_a, i_b);
     }
 

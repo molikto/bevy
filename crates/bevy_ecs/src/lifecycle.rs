@@ -524,7 +524,8 @@ pub struct RemovedComponents<'w, 's, T: Component> {
 ///
 /// See [`RemovedComponents`].
 pub struct RemovedIter<'a> {
-    iter: iter::Flatten<option::IntoIter<iter::Cloned<MessageIterator<'a, RemovedComponentEntity>>>>,
+    iter:
+        iter::Flatten<option::IntoIter<iter::Cloned<MessageIterator<'a, RemovedComponentEntity>>>>,
     stage: Stage,
 }
 
@@ -559,8 +560,6 @@ impl<'a> Iterator for RemovedIterWithId<'a> {
         None
     }
 }
-
-
 
 // For all practical purposes, the api surface of `RemovedComponents<T>`
 // should be similar to `MessageReader<T>` to reduce confusion.

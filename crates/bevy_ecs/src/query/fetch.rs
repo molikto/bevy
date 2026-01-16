@@ -1,9 +1,19 @@
 use crate::{
-    archetype::{Archetype, Archetypes}, bundle::Bundle, change_detection::{ComponentTicksMut, ComponentTicksRef, MaybeLocation, Tick}, component::{Component, ComponentId, Components, Mutable, StorageType}, entity::{Entities, Entity, EntityLocation}, query::{
-        Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery, access_iter::{EcsAccessLevel, EcsAccessType}
-    }, stage::Stage, storage::{ComponentSparseSet, Table, TableRow}, world::{
-        EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, FilteredEntityMut, FilteredEntityRef, Mut, Ref, World, unsafe_world_cell::UnsafeWorldCell
-    }
+    archetype::{Archetype, Archetypes},
+    bundle::Bundle,
+    change_detection::{ComponentTicksMut, ComponentTicksRef, MaybeLocation, Tick},
+    component::{Component, ComponentId, Components, Mutable, StorageType},
+    entity::{Entities, Entity, EntityLocation},
+    query::{
+        access_iter::{EcsAccessLevel, EcsAccessType},
+        Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery,
+    },
+    stage::Stage,
+    storage::{ComponentSparseSet, Table, TableRow},
+    world::{
+        unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
+        FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
+    },
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
@@ -2047,7 +2057,9 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         if column.stage() < fetch.current_stage {
             panic!(
                 "Cannot modify component {:?} added in stage {:?} from stage {:?}",
-                component_id, column.stage(), fetch.current_stage
+                component_id,
+                column.stage(),
+                fetch.current_stage
             );
         }
         let table_data = Some((
@@ -2065,7 +2077,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
         unsafe { fetch.components.set_table(table_data) };
     }
-    
+
     fn update_component_access(&component_id: &ComponentId, access: &mut FilteredAccess) {
         assert!(
             !access.access().has_component_read(component_id),

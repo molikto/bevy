@@ -20,7 +20,15 @@
 //! [`World::archetypes`]: crate::world::World::archetypes
 
 use crate::{
-    bundle::BundleId, change_detection::{CheckChangeTicks, Tick}, component::{ComponentId, Components, RequiredComponentConstructor, StorageType}, entity::{Entity, EntityLocation}, event::Event, observer::Observers, query::DebugCheckedUnwrap, stage::{Stage, StageComponentId}, storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow}
+    bundle::BundleId,
+    change_detection::{CheckChangeTicks, Tick},
+    component::{ComponentId, Components, RequiredComponentConstructor, StorageType},
+    entity::{Entity, EntityLocation},
+    event::Event,
+    observer::Observers,
+    query::DebugCheckedUnwrap,
+    stage::{Stage, StageComponentId},
+    storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
@@ -210,14 +218,20 @@ impl Edges {
     /// If this returns `None`, it means there has not been a transition from
     /// the source archetype via the provided bundle.
     #[inline]
-    pub fn get_archetype_after_bundle_insert(&self, bundle_id: BundleId, stage: Stage) -> Option<ArchetypeId> {
+    pub fn get_archetype_after_bundle_insert(
+        &self,
+        bundle_id: BundleId,
+        stage: Stage,
+    ) -> Option<ArchetypeId> {
         self.get_archetype_after_bundle_insert_internal(bundle_id, stage)
             .map(|bundle| bundle.archetype_id)
     }
-    
+
     /// Checks if there are no cached edges.
     pub fn is_empty(&self) -> bool {
-        self.insert_bundle.is_empty() && self.remove_bundle.is_empty() && self.take_bundle.is_empty()
+        self.insert_bundle.is_empty()
+            && self.remove_bundle.is_empty()
+            && self.take_bundle.is_empty()
     }
 
     /// Rewrites all cached insert bundle edges from one stage to another.
@@ -233,9 +247,9 @@ impl Edges {
         bundle_id: BundleId,
         stage: Stage,
     ) -> Option<&ArchetypeAfterBundleInsert> {
-        self.insert_bundle.get(stage).and_then(|map| {
-            map.get(bundle_id)
-        })
+        self.insert_bundle
+            .get(stage)
+            .and_then(|map| map.get(bundle_id))
     }
 
     /// Caches the target archetype when inserting a bundle into the source archetype.
@@ -421,7 +435,14 @@ impl Archetype {
         let (min_sparse, _) = sparse_set_components.size_hint();
         let mut flags = ArchetypeFlags::empty();
         let mut archetype_components = SparseSet::with_capacity(min_table + min_sparse);
-        for (idx, StageComponentId { component_id, stage }) in table_components.enumerate() {
+        for (
+            idx,
+            StageComponentId {
+                component_id,
+                stage,
+            },
+        ) in table_components.enumerate()
+        {
             // SAFETY: We are creating an archetype that includes this component so it must exist
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
@@ -430,7 +451,7 @@ impl Archetype {
                 component_id,
                 ArchetypeComponentInfo {
                     storage_type: StorageType::Table,
-                    stage
+                    stage,
                 },
             );
             // NOTE: the `table_components` are sorted AND they were inserted in the `Table` in the same
@@ -442,7 +463,11 @@ impl Archetype {
                 .insert(id, ArchetypeRecord { column: Some(idx) });
         }
 
-        for StageComponentId { component_id, stage } in sparse_set_components {
+        for StageComponentId {
+            component_id,
+            stage,
+        } in sparse_set_components
+        {
             // SAFETY: We are creating an archetype that includes this component so it must exist
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
@@ -451,7 +476,7 @@ impl Archetype {
                 component_id,
                 ArchetypeComponentInfo {
                     storage_type: StorageType::SparseSet,
-                    stage: stage
+                    stage,
                 },
             );
             component_index
@@ -563,16 +588,20 @@ impl Archetype {
         self.components.indices()
     }
 
-
     /// Returns an iterator of all of the components in the archetype with their infos.
     #[inline]
     pub fn component_infos(
         &self,
     ) -> impl Iterator<Item = (ComponentId, ArchetypeComponentInfo)> + '_ {
-        self.components.iter().map(|(id, info)| (*id, ArchetypeComponentInfo {
-            storage_type: info.storage_type,
-            stage: info.stage,
-        }))
+        self.components.iter().map(|(id, info)| {
+            (
+                *id,
+                ArchetypeComponentInfo {
+                    storage_type: info.storage_type,
+                    stage: info.stage,
+                },
+            )
+        })
     }
 
     /// Gets an iterator of all of the components in the archetype.
@@ -666,7 +695,11 @@ impl Archetype {
     /// # Panics
     /// This function will panic if `row >= self.entities.len()`
     #[inline]
-    pub(crate) fn swap_remove(&mut self, row: ArchetypeRow, change_tick: Tick) -> ArchetypeSwapRemoveResult {
+    pub(crate) fn swap_remove(
+        &mut self,
+        row: ArchetypeRow,
+        change_tick: Tick,
+    ) -> ArchetypeSwapRemoveResult {
         let is_last = row.index() == self.entities.len() - 1;
         let entity = self.entities.swap_remove(row.index());
         self.entities_changed_tick = change_tick;
@@ -710,7 +743,7 @@ impl Archetype {
         }
     }
 
-    pub(crate) fn rewrite_all_stage(&mut self, from: Stage, to: Stage)  {
+    pub(crate) fn rewrite_all_stage(&mut self, from: Stage, to: Stage) {
         if self.components.iter().any(|(_, info)| info.stage == to) {
             panic!("Cannot rewrite archetype stages: target stage already exists in archetype");
         }

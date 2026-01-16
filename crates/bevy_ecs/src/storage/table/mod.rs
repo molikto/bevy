@@ -1,5 +1,10 @@
 use crate::{
-    change_detection::{CheckChangeTicks, ComponentTicks, MaybeLocation, Tick}, component::{ComponentId, ComponentInfo, Components}, entity::Entity, query::DebugCheckedUnwrap, stage::{Stage, StageComponentId}, storage::{AbortOnPanic, ImmutableSparseSet, SparseSet}
+    change_detection::{CheckChangeTicks, ComponentTicks, MaybeLocation, Tick},
+    component::{ComponentId, ComponentInfo, Components},
+    entity::Entity,
+    query::DebugCheckedUnwrap,
+    stage::{Stage, StageComponentId},
+    storage::{AbortOnPanic, ImmutableSparseSet, SparseSet},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::HashMap;
@@ -730,7 +735,6 @@ impl Table {
     }
 }
 
-
 /// A collection of [`Table`] storages, indexed by [`TableId`]
 ///
 /// Can be accessed via [`Storages`](crate::storage::Storages)
@@ -812,7 +816,11 @@ impl Tables {
             .from_key(component_ids)
             .or_insert_with(|| {
                 let mut table = TableBuilder::with_capacity(0, component_ids.len());
-                for StageComponentId { component_id, stage } in component_ids {
+                for StageComponentId {
+                    component_id,
+                    stage,
+                } in component_ids
+                {
                     table = table.add_column(components.get_info_unchecked(*component_id), *stage);
                 }
                 tables.push(table.build());
@@ -831,7 +839,6 @@ impl Tables {
     pub fn iter_mut(&mut self) -> core::slice::IterMut<'_, Table> {
         self.tables.iter_mut()
     }
-
 
     /// Clears all data from all [`Table`]s stored within.
     pub(crate) fn clear(&mut self) {
@@ -880,7 +887,12 @@ impl Drop for Table {
 #[cfg(test)]
 mod tests {
     use crate::{
-        change_detection::{MaybeLocation, Tick}, component::{Component, ComponentIds, Components, ComponentsRegistrator}, entity::{Entity, EntityIndex}, ptr::OwningPtr, stage::Stage, storage::{TableBuilder, TableId, TableRow, Tables}
+        change_detection::{MaybeLocation, Tick},
+        component::{Component, ComponentIds, Components, ComponentsRegistrator},
+        entity::{Entity, EntityIndex},
+        ptr::OwningPtr,
+        stage::Stage,
+        storage::{TableBuilder, TableId, TableRow, Tables},
     };
     use alloc::vec::Vec;
 

@@ -5,12 +5,23 @@
 
 pub use crate::change_detection::{NonSend, NonSendMut, Res, ResMut};
 use crate::{
-    archetype::Archetypes, bundle::Bundles, change_detection::{ComponentTicksMut, ComponentTicksRef, Tick}, component::{ComponentId, Components}, entity::{Entities, EntityAllocator}, query::{
+    archetype::Archetypes,
+    bundle::Bundles,
+    change_detection::{ComponentTicksMut, ComponentTicksRef, Tick},
+    component::{ComponentId, Components},
+    entity::{Entities, EntityAllocator},
+    query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
         QueryState, ReadOnlyQueryData,
-    }, resource::Resource, stage::Stage, storage::ResourceData, system::{Query, Single, SystemMeta}, world::{
-        DeferredWorld, FilteredResources, FilteredResourcesMut, FromWorld, World, unsafe_world_cell::UnsafeWorldCell
-    }
+    },
+    resource::Resource,
+    stage::Stage,
+    storage::ResourceData,
+    system::{Query, Single, SystemMeta},
+    world::{
+        unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut,
+        FromWorld, World,
+    },
 };
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 pub use bevy_ecs_macros::SystemParam;
@@ -1748,8 +1759,6 @@ unsafe impl SystemParam for Stage {
 
 // SAFETY: Stage is read-only
 unsafe impl ReadOnlySystemParam for Stage {}
-
-
 
 /// A [`SystemParam`] that reads the previous and current change ticks of the system.
 ///

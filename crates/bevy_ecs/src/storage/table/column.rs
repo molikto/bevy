@@ -32,7 +32,6 @@ pub struct Column {
 }
 
 impl Column {
-
     /// Create a new [`Column`] with the given `capacity`.
     pub fn with_capacity(component_info: &ComponentInfo, capacity: usize, stage: Stage) -> Self {
         Self {

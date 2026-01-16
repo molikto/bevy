@@ -6,7 +6,19 @@ use crate::{
     archetype::{
         Archetype, ArchetypeAfterBundleInsert, ArchetypeCreated, ArchetypeId, Archetypes,
         ComponentStatus,
-    }, bundle::{ArchetypeMoveType, Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode}, change_detection::{MaybeLocation, Tick}, component::{Components, StorageType}, entity::{Entities, Entity, EntityLocation}, event::EntityComponentsTrigger, lifecycle::{ADD, Add, INSERT, Insert, REPLACE, Replace}, observer::Observers, query::DebugCheckedUnwrap as _, relationship::RelationshipHookMode, stage::Stage, storage::{SparseSets, Storages, Table, TableRow}, world::{World, unsafe_world_cell::UnsafeWorldCell}
+    },
+    bundle::{ArchetypeMoveType, Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
+    change_detection::{MaybeLocation, Tick},
+    component::{Components, StorageType},
+    entity::{Entities, Entity, EntityLocation},
+    event::EntityComponentsTrigger,
+    lifecycle::{Add, Insert, Replace, ADD, INSERT, REPLACE},
+    observer::Observers,
+    query::DebugCheckedUnwrap as _,
+    relationship::RelationshipHookMode,
+    stage::Stage,
+    storage::{SparseSets, Storages, Table, TableRow},
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
 // SAFETY: We have exclusive world access so our pointers can't be invalidated externally
@@ -519,7 +531,9 @@ impl BundleInfo {
                 let component_info = unsafe { components.get_info_unchecked(component_id) };
                 match component_info.storage_type() {
                     StorageType::Table => new_table_components.push(component_id.at_stage(stage)),
-                    StorageType::SparseSet => new_sparse_set_components.push(component_id.at_stage(stage)),
+                    StorageType::SparseSet => {
+                        new_sparse_set_components.push(component_id.at_stage(stage))
+                    }
                 }
             }
         }
@@ -545,7 +559,9 @@ impl BundleInfo {
             let edges = current_archetype.edges_mut();
             // The archetype does not change when we insert this bundle.
             edges.cache_archetype_after_bundle_insert(
-                self.id,                stage,                archetype_id,
+                self.id,
+                stage,
+                archetype_id,
                 bundle_status,
                 added_required_components,
                 added,

@@ -15,14 +15,29 @@ use alloc::boxed::Box;
 use core::marker::PhantomData;
 
 use crate::{
-    self as bevy_ecs, bundle::{Bundle, InsertMode, NoBundleEffect}, change_detection::{MaybeLocation, Mut}, component::{Component, ComponentId, Mutable}, entity::{
+    self as bevy_ecs,
+    bundle::{Bundle, InsertMode, NoBundleEffect},
+    change_detection::{MaybeLocation, Mut},
+    component::{Component, ComponentId, Mutable},
+    entity::{
         Entities, Entity, EntityAllocator, EntityClonerBuilder, EntityNotSpawnedError,
         InvalidEntityError, OptIn, OptOut,
-    }, error::{BevyError, CommandWithEntity, ErrorContext, HandleError, warn}, event::{EntityEvent, Event}, message::Message, observer::Observer, resource::Resource, schedule::ScheduleLabel, stage::StageMarker, system::{
-        Deferred, IntoObserverSystem, IntoSystem, ReadOnlySystemParam, RegisteredSystem, SystemId, SystemInput, SystemParam, SystemParamValidationError
-    }, world::{
-        CommandQueue, EntityWorldMut, FromWorld, World, command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell
-    }
+    },
+    error::{warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
+    event::{EntityEvent, Event},
+    message::Message,
+    observer::Observer,
+    resource::Resource,
+    schedule::ScheduleLabel,
+    stage::StageMarker,
+    system::{
+        Deferred, IntoObserverSystem, IntoSystem, ReadOnlySystemParam, RegisteredSystem, SystemId,
+        SystemInput, SystemParam, SystemParamValidationError,
+    },
+    world::{
+        command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, CommandQueue,
+        EntityWorldMut, FromWorld, World,
+    },
 };
 
 /// A [`Command`] queue to perform structural changes to the [`World`].
@@ -119,9 +134,7 @@ const _: () = {
         #[track_caller]
         fn init_state(world: &mut World) -> Self::State {
             FetchState {
-                state: <__StructFieldsAlias<'_, '_> as SystemParam>::init_state(
-                    world,
-                ),
+                state: <__StructFieldsAlias<'_, '_> as SystemParam>::init_state(world),
             }
         }
 
@@ -212,27 +225,26 @@ const _: () = {
     }
 };
 
-
 /// A [`SystemParam`] that provides access to another [`SystemParam`] at a specific stage.
-pub struct AtStage <M: Send +Sync + 'static, T> {
+pub struct AtStage<M: Send + Sync + 'static, T> {
     commands: T,
     _marker: PhantomData<M>,
 }
 
-impl <M: Send +Sync + 'static, T> core::ops::Deref for AtStage<M, T> {
+impl<M: Send + Sync + 'static, T> core::ops::Deref for AtStage<M, T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         &self.commands
     }
 }
 
-impl <M: Send +Sync + 'static, T> core::ops::DerefMut for AtStage<M, T> {
+impl<M: Send + Sync + 'static, T> core::ops::DerefMut for AtStage<M, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.commands
     }
 }
 
-unsafe impl <M: Send +Sync + 'static, T: SystemParam> SystemParam for AtStage<M, T> {
+unsafe impl<M: Send + Sync + 'static, T: SystemParam> SystemParam for AtStage<M, T> {
     type State = T::State;
 
     type Item<'world, 'state> = AtStage<M, T::Item<'world, 'state>>;
@@ -257,9 +269,7 @@ unsafe impl <M: Send +Sync + 'static, T: SystemParam> SystemParam for AtStage<M,
         change_tick: crate::change_detection::Tick,
     ) -> Self::Item<'world, 'state> {
         AtStage {
-            commands: unsafe {
-                T::get_param(state, system_meta, world, change_tick)
-            },
+            commands: unsafe { T::get_param(state, system_meta, world, change_tick) },
             _marker: PhantomData,
         }
     }
@@ -279,24 +289,27 @@ unsafe impl <M: Send +Sync + 'static, T: SystemParam> SystemParam for AtStage<M,
         world.set_stage(stage_before);
     }
 
-    fn queue(_state: &mut Self::State, _system_meta: &super::SystemMeta, _world: crate::world::DeferredWorld) {
+    fn queue(
+        _state: &mut Self::State,
+        _system_meta: &super::SystemMeta,
+        _world: crate::world::DeferredWorld,
+    ) {
         panic!("Stage controlled commands cannot be queued");
         //T::queue(state, system_meta, world);
     }
 
     unsafe fn validate_param(
-            state: &mut Self::State,
-            system_meta: &super::SystemMeta,
-            world: UnsafeWorldCell,
-        ) -> Result<(), SystemParamValidationError> {
-            unsafe {
-
-            T::validate_param(state, system_meta, world)
-        }
+        state: &mut Self::State,
+        system_meta: &super::SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
+        unsafe { T::validate_param(state, system_meta, world) }
     }
 }
 
-unsafe impl<M: Send + Sync + 'static, T: ReadOnlySystemParam> ReadOnlySystemParam for AtStage<M, T> {
+unsafe impl<M: Send + Sync + 'static, T: ReadOnlySystemParam> ReadOnlySystemParam
+    for AtStage<M, T>
+{
 }
 
 enum InternalQueue<'s> {

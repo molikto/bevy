@@ -2,21 +2,18 @@
 
 use core::marker::PhantomData;
 
-use crate::{
-    component::ComponentId, prelude::Resource, storage::SparseSetIndex
-};
+use crate::{component::ComponentId, prelude::Resource, storage::SparseSetIndex};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
-
 /// Used to mark a stage by type
 #[derive(Debug, Clone, Copy, Resource)]
-pub struct StageMarker<T: Send +Sync + 'static> {
+pub struct StageMarker<T: Send + Sync + 'static> {
     /// The stage.
     pub stage: Stage,
     _marker: PhantomData<T>,
 }
-impl <T: Send +Sync + 'static> StageMarker<T> {
+impl<T: Send + Sync + 'static> StageMarker<T> {
     /// Creates a new `StageMarker` wrapping the given stage.
     pub fn new(stage: Stage) -> Self {
         Self {
@@ -95,7 +92,6 @@ pub struct StageComponentId {
     pub stage: Stage,
 }
 
-
 impl StageComponentId {
     /// Creates a new `StageComponentId` with the given component ID and stage.
     pub const fn new(component_id: ComponentId, stage: Stage) -> Self {
@@ -105,7 +101,6 @@ impl StageComponentId {
         }
     }
 }
-
 
 impl ComponentId {
     /// Creates a `StageComponentId` at the given stage.
@@ -124,7 +119,11 @@ impl ComponentId {
 #[cfg(test)]
 mod tests {
 
-    use crate::{query::With, stage::{Stage, StageMarker}, system::AtStage};
+    use crate::{
+        query::With,
+        stage::{Stage, StageMarker},
+        system::AtStage,
+    };
 
     use super::super::prelude::*;
     use std::*;
@@ -221,7 +220,7 @@ mod tests {
         world.set_stage(start_stage.next().next());
         world.entity_mut(entity).get_mut::<A>().unwrap();
     }
-    
+
     #[test]
     fn test_can_modify_component_from_same_stage() {
         let mut world = World::new();
@@ -244,7 +243,7 @@ mod tests {
         let _b_only = world.spawn(B).id();
         world.flush();
 
-        fn t1(qa: Query<&A>, qb: Query<&B>, qab: Query<Entity, (With<A>, With<B>)>, stage: Stage)  {
+        fn t1(qa: Query<&A>, qb: Query<&B>, qab: Query<Entity, (With<A>, With<B>)>, stage: Stage) {
             println!("running t1 at stage {:?}", stage);
             let res = (qa.iter().count(), qb.iter().count(), qab.iter().count());
             assert_eq!(res, (2, 2, 1));
@@ -252,11 +251,11 @@ mod tests {
         let mut s1 = Schedule::default();
         s1.add_systems(t1);
 
-        fn t2(mut commands: Commands, qa: Query<(Entity, &A), Without<B>>, stage: Stage)  {
+        fn t2(mut commands: Commands, qa: Query<(Entity, &A), Without<B>>, stage: Stage) {
             println!("Running t2 at stage {:?}", stage);
             let Some(_) = qa.iter().next() else {
                 // this is second tick
-                return
+                return;
             };
             commands.entity(qa.iter().next().unwrap().0).insert(B);
             let res = qa.iter().count();
@@ -265,8 +264,7 @@ mod tests {
         let mut s2 = Schedule::default();
         s2.add_systems(t2);
 
-
-        fn t3(qb: Query<&B>, stage: Stage)  {
+        fn t3(qb: Query<&B>, stage: Stage) {
             println!("running t3 at stage {:?}", stage);
             let res = qb.iter().count();
             assert_eq!(res, 3);
@@ -282,7 +280,6 @@ mod tests {
             s2.run(&mut world);
             world.set_stage(start_stage.next().next().next());
             s3.run(&mut world);
-
         };
         run_once();
         // even at second run
@@ -298,9 +295,7 @@ mod tests {
         let mut world = World::new();
 
         // add at stage 2
-        fn stage2_without_a(mut commands: Commands,
-            query: Query<&A>,
-             stage: Stage) {
+        fn stage2_without_a(mut commands: Commands, query: Query<&A>, stage: Stage) {
             println!("Running stage2_without_a at stage {:?}", stage);
             let count = query.iter().count();
             assert_eq!(count, 0);
@@ -312,10 +307,8 @@ mod tests {
         schedule_stage2_without_a.run(&mut world);
 
         // at stage 1, assert A is not present yet, then insert A
-        fn stage1_insert_a(mut commands: Commands,
-            query: Query<&A>,
-             stage: Stage) {
-                assert_eq!(query.iter().count(), 0);
+        fn stage1_insert_a(mut commands: Commands, query: Query<&A>, stage: Stage) {
+            assert_eq!(query.iter().count(), 0);
             println!("Running stage1_insert_a at stage {:?}", stage);
             commands.spawn((A,));
         }
@@ -366,9 +359,11 @@ mod tests {
         let mut world = World::new();
         let entity = world.spawn(A).id();
 
-        fn insert_a_at_stage_2(mut commands: Commands,
-            query: Query<Entity, (With<A>, Without<ValueComponent>)>) {
-            let entity= query.iter().next().unwrap();
+        fn insert_a_at_stage_2(
+            mut commands: Commands,
+            query: Query<Entity, (With<A>, Without<ValueComponent>)>,
+        ) {
+            let entity = query.iter().next().unwrap();
             commands.entity(entity).insert(ValueComponent(10));
         }
         world.set_stage(Stage::new(2));
@@ -376,9 +371,11 @@ mod tests {
         schedule_insert_a_at_stage_2.add_systems(insert_a_at_stage_2);
         schedule_insert_a_at_stage_2.run(&mut world);
 
-        fn insert_a_at_stage_1(mut commands: Commands,
-            query: Query<Entity, (With<A>, Without<ValueComponent>)>) {
-            let entity= query.iter().next().unwrap();
+        fn insert_a_at_stage_1(
+            mut commands: Commands,
+            query: Query<Entity, (With<A>, Without<ValueComponent>)>,
+        ) {
+            let entity = query.iter().next().unwrap();
 
             commands.entity(entity).insert(ValueComponent(0));
         }
@@ -399,12 +396,8 @@ mod tests {
         schedule_check_value_component.add_systems(check_value_component);
         schedule_check_value_component.run(&mut world);
 
-
-        fn assert_is_gone(
-            query: Query<Entity, (With<A>, Without<ValueComponent>)>,
-        ) {
-                assert!(query.iter().next().is_none());
-            
+        fn assert_is_gone(query: Query<Entity, (With<A>, Without<ValueComponent>)>) {
+            assert!(query.iter().next().is_none());
         }
         world.set_stage(Stage::new(2));
         let mut schedule_assert_is_gone = Schedule::default();
@@ -425,9 +418,11 @@ mod tests {
         let mut world = World::new();
         let _entity = world.spawn(A).id();
 
-        fn insert_value_component_at_stage_2(mut commands: Commands,
-            query: Query<Entity, (With<A>, Without<ValueComponent>)>) {
-            let entity= query.iter().next().unwrap();
+        fn insert_value_component_at_stage_2(
+            mut commands: Commands,
+            query: Query<Entity, (With<A>, Without<ValueComponent>)>,
+        ) {
+            let entity = query.iter().next().unwrap();
             commands.entity(entity).insert(ValueComponent(10));
         }
         world.set_stage(Stage::new(2));
@@ -464,9 +459,11 @@ mod tests {
         let mut world = World::new();
         world.set_stage(Stage::new(2));
         let _entity = world.spawn((A, ValueComponent(5))).id();
-        fn remove_value_component_at_stage_2(mut commands: Commands,
-            query: Query<Entity, (With<A>, With<ValueComponent>)>) {
-            let entity= query.iter().next().unwrap();
+        fn remove_value_component_at_stage_2(
+            mut commands: Commands,
+            query: Query<Entity, (With<A>, With<ValueComponent>)>,
+        ) {
+            let entity = query.iter().next().unwrap();
             commands.entity(entity).remove::<ValueComponent>();
         }
         world.set_stage(Stage::new(2));
@@ -513,10 +510,7 @@ mod tests {
         schedule_insert_a_at_stage_m.add_systems(insert_a_at_stage_m);
         schedule_insert_a_at_stage_m.run(&mut world);
 
-        fn count_a_at_0(
-            query: Query<&A>,
-            stage: Stage,
-        ) {
+        fn count_a_at_0(query: Query<&A>, stage: Stage) {
             assert_eq!(query.iter().count(), 0, "at stage {:?}", stage);
         }
         world.set_stage(Stage::new(0));
@@ -524,10 +518,7 @@ mod tests {
         schedule_count_a_at_0.add_systems(count_a_at_0);
         schedule_count_a_at_0.run(&mut world);
 
-        fn count_a_at_1(
-            query: Query<&A>,
-            stage: Stage,
-        ) {
+        fn count_a_at_1(query: Query<&A>, stage: Stage) {
             assert_eq!(query.iter().count(), 1, "at stage {:?}", stage);
         }
         world.set_stage(Stage::new(1));
@@ -544,10 +535,7 @@ mod tests {
         // it rewrites the archetypes and component storages
         // the new stage must be empty, otherwise we cannot merge safely
         world.rewrite_all_stage(Stage::new(0), Stage::new(2));
-        fn check_at_stage_1(
-            query: Query<&A>,
-            stage: Stage,
-        ) {
+        fn check_at_stage_1(query: Query<&A>, stage: Stage) {
             assert_eq!(query.iter().count(), 0, "at stage {:?}", stage);
         }
         world.set_stage(Stage::new(1));
@@ -555,10 +543,7 @@ mod tests {
         schedule_check_at_stage_1.add_systems(check_at_stage_1);
         schedule_check_at_stage_1.run(&mut world);
 
-        fn check_at_stage_2(
-            query: Query<&A>,
-            stage: Stage,
-        ) {
+        fn check_at_stage_2(query: Query<&A>, stage: Stage) {
             assert_eq!(query.iter().count(), 1, "at stage {:?}", stage);
         }
         world.set_stage(Stage::new(2));

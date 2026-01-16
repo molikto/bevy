@@ -2,8 +2,8 @@ use core::any::TypeId;
 
 use crate::serde::de::error_utils::make_custom_error;
 use crate::{FromType, PartialReflect, TypeRegistry};
+use alloc::{boxed::Box, format, string::String};
 use serde::Deserializer;
-use alloc::{format, string::String, boxed::Box};
 
 /// Trait used to provide finer control when deserializing a reflected type with one of
 /// the reflection deserializers.
@@ -88,7 +88,7 @@ impl<T: PartialReflect + for<'de> DeserializeWithRegistry<'de>> FromType<T>
     }
 }
 
-impl <'de> DeserializeWithRegistry<'de> for TypeId {
+impl<'de> DeserializeWithRegistry<'de> for TypeId {
     fn deserialize<D>(deserializer: D, registry: &TypeRegistry) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,

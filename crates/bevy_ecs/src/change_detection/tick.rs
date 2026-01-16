@@ -3,7 +3,7 @@ use bevy_ecs_macros::Event;
 use bevy_reflect::Reflect;
 use core::{cell::UnsafeCell, panic::Location};
 
-use crate::{change_detection::{MAX_CHANGE_AGE, MaybeLocation}};
+use crate::change_detection::{MaybeLocation, MAX_CHANGE_AGE};
 
 /// A value that tracks when a system ran relative to other systems.
 /// This is used to power change detection.
@@ -184,4 +184,3 @@ impl ComponentTicks {
         self.changed = change_tick;
     }
 }
-
