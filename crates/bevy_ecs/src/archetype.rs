@@ -744,9 +744,6 @@ impl Archetype {
     }
 
     pub(crate) fn rewrite_all_stage(&mut self, from: Stage, to: Stage) {
-        if self.components.iter().any(|(_, info)| info.stage == to) {
-            panic!("Cannot rewrite archetype stages: target stage already exists in archetype");
-        }
         if self.components.iter().any(|(_, info)| info.stage == from) {
             for (_, info) in self.components.iter_mut() {
                 if info.stage != from {
