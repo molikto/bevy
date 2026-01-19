@@ -3035,14 +3035,18 @@ impl World {
     }
 
     /// Runs a closure with the world set to the stage associated with the given [`StageMarker`].
-    pub fn with_stage_marker<T: Send + Sync + 'static>(&mut self, f: impl FnOnce(&mut World)) {
+    pub fn with_stage_marker<T: Send + Sync + 'static, R>(
+        &mut self,
+        f: impl FnOnce(&mut World) -> R,
+    ) -> R {
         let stage_before = self.stage();
         let stage = self.get_stage_by_marker::<T>();
         self.flush();
         self.set_stage(stage);
-        f(self);
+        let result = f(self);
         self.flush();
         self.set_stage(stage_before);
+        result
     }
 
     /// Gets the stage of this world using a [`StageMarker`].
