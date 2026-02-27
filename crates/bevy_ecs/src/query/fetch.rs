@@ -2566,7 +2566,6 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
         archetype: &'w Archetype,
         _table: &Table,
     ) {
-        println!("call1");
         *fetch = archetype.contains(*state);
     }
 
